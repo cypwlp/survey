@@ -67,9 +67,47 @@ Go
 
 ## 3. 對外入口（二選一，建議 A，跟 ODApi 同模式）
 
-### A. IIS 加一個應用 ＋ ARR（推薦）
+### A. IIS 加一個應用 ＋ ARR（推薦）— **2026-10-16 已在正式環境打通**
 
-在 48.3 的 IIS 站點 `interior.topmix.net` 下新增應用 `survey`，實體路徑隨便給個空目錄，
+**前置：48.3 上必須安裝兩個模組**（這台原本沒裝，是 500.19 的根因）：
+
+```powershell
+# 在「提升權限」的 PowerShell 跑（見文末「權限陷阱」）
+$dl = "$env:TEMP\iis-modules"; New-Item -ItemType Directory -Path $dl -Force | Out-Null
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Invoke-WebRequest 'https://download.microsoft.com/download/1/2/8/128E2E22-C1B9-44A4-BE2A-5859ED1D4592/rewrite_amd64_en-US.msi' -OutFile "$dl\rewrite.msi"
+Invoke-WebRequest 'https://download.microsoft.com/download/E/9/8/E9849D6A-020E-47E4-9FD0-A023E99B54EB/requestRouter_amd64.msi' -OutFile "$dl\arr.msi"
+Start-Process msiexec.exe -ArgumentList "/i `"$dl\rewrite.msi`" /passive /norestart" -Wait
+Start-Process msiexec.exe -ArgumentList "/i `"$dl\arr.msi`" /passive /norestart" -Wait
+iisreset
+```
+
+**然後開啟 ARR 的反向代理（預設是關的，這步沒做會得到 404.4）**：
+
+```powershell
+Import-Module WebAdministration
+Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value 'True'
+```
+
+**⚠️ 權限陷阱（這次卡最久的）**：帳號叫 Administrator ≠ 有提升權限。驗證方式：
+
+```powershell
+[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+```
+
+回 `False` 就是普通權限（`iisreset`、`Get-WebGlobalModule`、`Import-Module WebAdministration` 全部會失敗或靜默回空）。
+在現有 PowerShell 用 `Start-Process powershell -Verb RunAs` 開一個新的（會跳 UAC）。
+
+**錯誤碼對照（照這個順序排查）**：
+
+| 錯誤 | 原因 | 修法 |
+|---|---|---|
+| `404.0`（StaticFile） | web.config 不存在 | 放到**實際物理路徑**（IIS 錯誤頁會顯示，例：`E:\Data\Info\System\SoftWare\ODSurvey\`） |
+| `500.19 / 0x8007000d` | ①檔案內容壞（notepad 存檔問題）②**URL Rewrite 模組沒裝** | ①用 `Set-Content -Encoding UTF8` 寫檔 ②裝 URL Rewrite |
+| `404.4 / 0x8007007b` | 模組已裝但 IIS 沒重啟（半載入）或 ARR proxy 沒開 | `iisreset` ＋ 開 ARR proxy |
+| `502` | ARR proxy 沒開 | 同上 |
+
+在 48.3 的 IIS 站點 `interior.topmix.net` 下新增應用 `ODSurvey`（實體路徑例如 `E:\Data\Info\System\SoftWare\ODSurvey`），
 然後在該應用的 `web.config` 放入（ARR 需已啟用）：
 
 ```xml
