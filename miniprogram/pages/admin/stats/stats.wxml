@@ -1,0 +1,89 @@
+<view class="head">
+  <view class="head-inner">
+    <view class="head-eyebrow">回收統計</view>
+    <view class="head-title">{{stats.title}}</view>
+    <view class="head-sub" wx:if="{{stats}}">{{stats.isClosed ? '問卷已結束' : '問卷進行中'}}｜{{stats.hasGroupBound ? '已綁定群組' : (stats.bindMode === 'group' ? '待綁定群組' : '開放作答')}}</view>
+  </view>
+</view>
+
+<view class="wrap">
+  <view wx:if="{{loading}}" class="card card--overlap empty"><view class="empty-glyph">◍</view>載入中…</view>
+  <view wx:elif="{{error}}" class="card card--overlap"><view class="err-box">{{error}}</view></view>
+
+  <block wx:elif="{{stats}}">
+    <view class="kpis card card--overlap">
+      <view class="kpi">
+        <view class="kpi-num">{{stats.answerCount}}</view>
+        <view class="kpi-l">份提交</view>
+      </view>
+      <view class="kpi-sep"></view>
+      <view class="kpi">
+        <view class="kpi-num">{{stats.visitCount}}</view>
+        <view class="kpi-l">人開啟</view>
+      </view>
+      <view class="kpi-sep"></view>
+      <view class="kpi kpi--hi">
+        <view class="kpi-num">{{rate}}</view>
+        <view class="kpi-l">提交／開啟</view>
+      </view>
+    </view>
+
+    <view class="card" wx:if="{{stats.perGroup.length}}">
+      <view class="row">
+        <view class="sec-title" style="margin-bottom:0">各群提交數</view>
+        <view class="tag tag-info">{{stats.groupCount}} 個群</view>
+      </view>
+      <view class="divider"></view>
+      <view class="grow" wx:for="{{stats.perGroup}}" wx:key="openGId">
+        <view class="grow-top">
+          <text class="grow-label">群 {{index + 1}}</text>
+          <text class="faint">{{item.openGId}}</text>
+        </view>
+        <view class="dist-track"><view class="dist-bar" style="width: {{item.answerCount / maxGroupAnswerCount * 100}}%"></view></view>
+        <view class="grow-n">{{item.answerCount}} 份提交</view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="row">
+        <view class="sec-title" style="margin-bottom:0">匯出</view>
+        <view class="faint">時間欄位已轉 +8</view>
+      </view>
+      <view class="btn-group">
+        <button class="btn btn-primary btn-sm" hover-class="btn-hover" bindtap="exportXlsx" loading="{{exporting}}" disabled="{{exporting}}">匯出 Excel</button>
+        <button class="btn btn-ghost btn-sm" hover-class="btn-hover" bindtap="exportCsv" loading="{{exporting}}" disabled="{{exporting}}">匯出 CSV</button>
+      </view>
+      <view class="hint">微信不提供群成員總數，所以沒有「對全群的回收率」；這裡的提交率是「開啟過的人裡面有幾位提交」。</view>
+    </view>
+
+    <view class="card" wx:for="{{stats.questions}}" wx:key="k" wx:for-item="q">
+      <view class="row">
+        <view class="q-title">{{index + 1}}. {{q.title}}</view>
+      </view>
+      <view class="faint" style="margin-bottom:18rpx">已回收 {{q.answerCount}} 份</view>
+
+      <block wx:if="{{q.type === 'choice'}}">
+        <view class="dist" wx:for="{{q.distribution}}" wx:key="option" wx:for-item="d">
+          <view class="dist-top">
+            <text class="dist-label">{{d.option}}</text>
+            <text class="dist-pct">{{d.count}} 份 · {{d.pct}}%</text>
+          </view>
+          <view class="dist-track"><view class="dist-bar" style="width: {{d.bar}}"></view></view>
+        </view>
+      </block>
+
+      <block wx:else>
+        <view class="cloud" wx:if="{{q.words.length}}">
+          <text class="cloud-w tier{{w.tier}}" wx:for="{{q.words}}" wx:key="w" wx:for-item="w" style="font-size: {{w.fs}}rpx">{{w.w}}</text>
+        </view>
+        <view class="faint" wx:if="{{q.words.length}}" style="margin-bottom:8rpx">高頻詞（2 字詞組統計，非分詞）</view>
+
+        <view wx:if="{{!q.texts.length}}" class="empty" style="padding:30rpx 0">（尚無回答）</view>
+        <view class="ans" wx:for="{{q.texts}}" wx:key="openid" wx:for-item="t">
+          <view class="ans-v">{{t.value}}</view>
+          <view class="ans-m">{{t.openid}}</view>
+        </view>
+      </block>
+    </view>
+  </block>
+</view>

@@ -1,0 +1,138 @@
+/* .head 共用樣式在 app.wxss */
+.head-tag { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.head-tag .dot { background: #6ee7b7; }
+.head-count { color: rgba(255, 255, 255, 0.85); font-size: 24rpx; }
+
+.head-title {
+  color: #fff;
+  font-size: 40rpx;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 20rpx;
+}
+
+.head-group {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 24rpx;
+  margin-top: 10rpx;
+}
+
+.head .card:first-of-type { margin-top: 0; }
+
+.wrap > .card:first-child,
+.wrap > .notice:first-child { margin-top: -56rpx; }
+
+.notice { margin-bottom: 24rpx; }
+
+/* 題目 */
+.q-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  margin-bottom: 18rpx;
+}
+
+.q-no {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 14rpx;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+  font-size: 23rpx;
+  font-weight: 700;
+  text-align: center;
+  line-height: 44rpx;
+  flex-shrink: 0;
+}
+
+.q-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  line-height: 44rpx;
+  flex: 1;
+}
+
+.req { color: var(--danger); margin-left: 6rpx; }
+
+.ph { color: #b6bfcc; }
+
+.announce {
+  white-space: pre-wrap;
+  color: #334155;
+  background: #fff;
+  border-radius: var(--r-md);
+  padding: 24rpx;
+  box-shadow: var(--shadow-sm);
+  font-size: 27rpx;
+}
+
+/* 單選 */
+.opts { display: flex; flex-direction: column; gap: 16rpx; }
+
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  border: 2rpx solid var(--line);
+  border-radius: var(--r-md);
+  padding: 22rpx 24rpx;
+  color: #334155;
+  background: #fbfcfe;
+  transition: all 0.16s ease;
+}
+
+.opt-hover { opacity: 0.7; }
+
+.opt-dot {
+  width: 30rpx;
+  height: 30rpx;
+  border-radius: 50%;
+  border: 3rpx solid #cbd5e1;
+  flex-shrink: 0;
+}
+
+.opt-on {
+  border-color: var(--primary);
+  background: rgba(79, 70, 229, 0.06);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.opt-on .opt-dot {
+  border-color: var(--primary);
+  background: radial-gradient(circle, var(--primary) 0%, var(--primary) 38%, #fff 44%);
+}
+
+.field-set {
+  border-color: var(--primary);
+  background: rgba(79, 70, 229, 0.06);
+  color: var(--primary);
+  font-weight: 600;
+  text-align: left;
+}
+
+/* 已提交 */
+.done-card { text-align: center; padding: 44rpx 32rpx; }
+
+.done-ico {
+  width: 96rpx;
+  height: 96rpx;
+  line-height: 96rpx;
+  margin: 0 auto 18rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  font-size: 46rpx;
+}
+
+.done-ico--off { background: linear-gradient(135deg, #94a3b8, #64748b); }
+
+.done-t { font-size: 34rpx; font-weight: 700; margin-bottom: 8rpx; }
+
+.answer-box {
+  white-space: pre-wrap;
+  color: #334155;
+  background: #f6f8fc;
+  border-radius: var(--r-md);
+  padding: 22rpx;
+}

@@ -1,0 +1,24 @@
+# 部署到 10.241.50.213（Docker）— 與既有 AOI 平台共存
+#
+# 端口規劃（依 213 上 odapi 那套的實際佔用）：
+#   80   odapi-nginx    8080 odapi      8088 odweb
+#   9090 prometheus     9093 alertmanager     3100 loki
+#   3000 Grafana  ← 所以本服務「不能用 3000」，改用 3001
+#
+# 用法：把 server/ 複製到 213，在該目錄執行
+#   docker compose up -d --build
+services:
+  survey-api:
+    build: .
+    image: survey-api:1.0
+    container_name: survey-api
+    restart: unless-stopped
+    ports:
+      - "3001:3000"           # 宿主機 3001 → 容器 3000（3000 已被 Grafana 佔用）
+    env_file:
+      - .env.production       # DB_*／WX_*／TOKEN_SECRET 放這裡，不要進版控
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

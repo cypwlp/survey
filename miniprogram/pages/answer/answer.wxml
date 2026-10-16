@@ -1,0 +1,103 @@
+<view class="head">
+  <view class="head-inner">
+    <view class="row">
+      <view class="tag tag-info head-tag">
+        <text class="dot dot-live"></text>{{survey.isClosed ? '已結束' : (survey.myAnswers ? '已提交' : '進行中')}}
+      </view>
+      <view class="head-count" wx:if="{{!survey.myAnswers && !survey.isClosed}}">已答 {{answered}}/{{total}}</view>
+    </view>
+    <view class="head-title">{{survey.title}}</view>
+    <view class="head-group" wx:if="{{survey.groupName}}">發問群組：{{survey.groupName}}</view>
+    <view class="head-group" wx:if="{{openGId}}">
+      <open-data type="groupName" open-gid="{{openGId}}"></open-data>
+    </view>
+  </view>
+</view>
+
+<view class="wrap">
+  <view wx:if="{{loading}}" class="empty">
+    <view class="empty-glyph">◍</view>載入中…
+  </view>
+  <view wx:elif="{{error}}" class="card">
+    <view class="err-box">{{error}}</view>
+  </view>
+
+  <block wx:elif="{{survey}}">
+    <view class="notice" wx:if="{{groupWarning}}">{{groupWarning}}</view>
+    <view class="notice" wx:elif="{{survey.bindMode === 'group' && !openGId && !survey.myAnswers}}">
+      請從微信群的問卷卡片進入作答，否則系統無法識別群組、提交會被擋下。
+    </view>
+
+    <view class="card card--tint" wx:if="{{survey.announcement}}">
+      <view class="sec-title">公告內容</view>
+      <view class="announce">{{survey.announcement}}</view>
+    </view>
+
+    <block wx:if="{{survey.myAnswers}}">
+      <view class="card done-card">
+        <view class="done-ico">✓</view>
+        <view class="done-t">已提交，謝謝！</view>
+        <view class="muted">一人限一份，如需修改請聯絡管理員。</view>
+      </view>
+      <view class="card" wx:for="{{survey.questions}}" wx:key="k" wx:for-item="q">
+        <view class="q-head">
+          <view class="q-no">{{index + 1}}</view>
+          <view class="q-title">{{q.title}}</view>
+        </view>
+        <view class="answer-box">{{answers[q.k] || '（未填）'}}</view>
+      </view>
+    </block>
+
+    <block wx:elif="{{survey.isClosed}}">
+      <view class="card done-card">
+        <view class="done-ico done-ico--off">—</view>
+        <view class="done-t">此問卷已結束</view>
+        <view class="muted">如需補答請聯絡管理員重新開放。</view>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="card" wx:for="{{survey.questions}}" wx:key="k" wx:for-item="q">
+        <view class="q-head">
+          <view class="q-no">{{index + 1}}</view>
+          <view class="q-title">{{q.title}}<text class="req" wx:if="{{q.required}}">*</text></view>
+        </view>
+
+        <textarea
+          wx:if="{{q.type === 'text'}}"
+          class="textarea"
+          value="{{answers[q.k]}}"
+          data-k="{{q.k}}"
+          bindinput="onText"
+          placeholder="寫下你的理解或想法"
+          placeholder-class="ph"
+          maxlength="2000"
+        />
+
+        <picker wx:elif="{{q.type === 'date'}}" mode="date" value="{{answers[q.k]}}" data-k="{{q.k}}" bindchange="onDate">
+          <view class="field {{answers[q.k] ? 'field-set' : ''}}">{{answers[q.k] || '點此選擇日期'}}</view>
+        </picker>
+
+        <view wx:else class="opts">
+          <view
+            class="opt {{answers[q.k] === opt ? 'opt-on' : ''}}"
+            wx:for="{{q.options}}"
+            wx:key="*this"
+            wx:for-item="opt"
+            hover-class="opt-hover"
+            data-k="{{q.k}}"
+            data-opt="{{opt}}"
+            bindtap="onChoice"
+          >
+            <view class="opt-dot"></view>{{opt}}
+          </view>
+        </view>
+      </view>
+
+      <view class="submit-bar">
+        <button class="btn btn-primary" hover-class="btn-hover" bindtap="submit" loading="{{submitting}}" disabled="{{submitting}}">提交問卷</button>
+        <view class="hint" style="text-align:center">提交後無法修改，管理員可見回收狀況</view>
+      </view>
+    </block>
+  </block>
+</view>

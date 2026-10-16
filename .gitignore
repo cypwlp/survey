@@ -1,0 +1,24 @@
+# 依賴（213 上 docker build 會自己裝）
+node_modules/
+
+# 環境設定：內含資料庫密碼與微信 Secret，絕不進版控
+.env
+.env.production
+.env.local
+*.env
+
+# 日誌
+*.log
+
+# 部署產物（重複內容，不推）
+deploy/pkg/
+deploy/*.zip
+
+# 開發者工具私有設定
+miniprogram/project.private.config.json
+
+# OS / 編輯器
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/

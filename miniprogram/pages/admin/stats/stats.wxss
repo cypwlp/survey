@@ -1,0 +1,106 @@
+.card--overlap { margin-top: -64rpx; }
+
+.q-title { font-size: 29rpx; font-weight: 700; line-height: 1.45; flex: 1; }
+
+/* KPI bento */
+.kpis {
+  display: flex;
+  align-items: center;
+  padding: 34rpx 0;
+}
+
+.kpi { flex: 1; text-align: center; }
+
+.kpi-num {
+  font-size: 52rpx;
+  font-weight: 800;
+  letter-spacing: -1rpx;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+/* 用實色而非 gradient text：部分 Android webview 不支援 background-clip:text，
+   失敗會讓數字變成透明看不見 */
+.kpi--hi .kpi-num { color: var(--primary); }
+
+.kpi-l { font-size: 22rpx; color: var(--faint); margin-top: 6rpx; }
+
+.kpi-sep { width: 2rpx; height: 60rpx; background: var(--line); }
+
+/* 選項分佈 */
+.dist { margin-top: 22rpx; }
+
+.grow { margin-top: 26rpx; }
+
+.grow-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10rpx;
+}
+
+.grow-label { font-size: 27rpx; font-weight: 600; color: #334155; }
+
+.grow-top .faint { word-break: break-all; margin-left: 16rpx; }
+
+.grow-n {
+  font-size: 22rpx;
+  color: var(--muted);
+  margin-top: 8rpx;
+  text-align: right;
+}
+
+.dist-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10rpx;
+}
+
+.dist-label { font-size: 26rpx; color: #334155; flex: 1; margin-right: 16rpx; }
+
+.dist-pct { font-size: 23rpx; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.dist-track {
+  height: 20rpx;
+  background: #eef1f7;
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+
+.dist-bar {
+  height: 100%;
+  border-radius: 999rpx;
+  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 60%, #a855f7 100%);
+  transition: width 0.4s ease;
+}
+
+/* 高頻詞 */
+.cloud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6rpx 24rpx;
+  background: #f7f9fd;
+  border-radius: var(--r-md);
+  padding: 24rpx;
+  margin-bottom: 12rpx;
+}
+
+.cloud-w { line-height: 1.55; font-weight: 600; }
+
+.tier0 { color: #4f46e5; }
+.tier1 { color: #8b85ee; }
+.tier2 { color: #b9b6e8; }
+
+/* 文字答案 */
+.ans {
+  border-top: 2rpx solid var(--line);
+  padding: 20rpx 0;
+}
+
+.ans:first-of-type { border-top: none; }
+
+.ans-v { white-space: pre-wrap; color: #334155; font-size: 27rpx; }
+
+.ans-m { font-size: 21rpx; color: var(--faint); margin-top: 6rpx; }

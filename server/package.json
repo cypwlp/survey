@@ -1,0 +1,20 @@
+{
+  "name": "survey-system-server",
+  "version": "1.0.0",
+  "description": "微信群公告 5W1H 问卷 — 后端 API（Express + SQL Server）",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "smoke": "node test/smoke.js",
+    "check:mp": "node ../tools/check-miniprogram.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^5.1.0",
+    "mssql": "^11.0.1"
+  }
+}

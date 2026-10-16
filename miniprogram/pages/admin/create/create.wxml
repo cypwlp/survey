@@ -1,0 +1,85 @@
+<view class="head">
+  <view class="head-inner">
+    <view class="head-eyebrow">管理員</view>
+    <view class="head-title">建立問卷</view>
+    <view class="head-sub">預設已套用 5W 題目，可直接修改或增删</view>
+  </view>
+</view>
+
+<view class="wrap">
+  <view class="card card--overlap">
+    <view class="sec-title">基本信息</view>
+
+    <view class="label">問卷標題</view>
+    <input class="input" value="{{title}}" bindinput="onTitle" placeholder="例：十月新流程群公告確認" placeholder-class="ph" maxlength="100" />
+
+    <view class="label">群名稱（可加多個，這份問卷就能發到多個群）</view>
+    <view class="tags" wx:if="{{groupNames.length}}">
+      <view class="g-tag" wx:for="{{groupNames}}" wx:key="*this">
+        <text>{{item}}</text>
+        <text class="g-del" hover-class="opt-hover" data-name="{{item}}" bindtap="removeGroupName">✕</text>
+      </view>
+    </view>
+    <view class="row">
+      <input class="input" style="flex:1" value="{{groupInput}}" bindinput="onGroupInput" placeholder="例：Topmix 生產部群" placeholder-class="ph" maxlength="100" confirm-type="完成" bindconfirm="addGroupName" />
+      <view class="add-tag" hover-class="opt-hover" bindtap="addGroupName">加入</view>
+    </view>
+    <view class="hint">小程序讀不到微信群名（微信限制），這裡由管理員填寫，用於後台歸類；加好的群名會記在這台手機上，下次可直接選。</view>
+
+    <view class="saved" wx:if="{{savedGroups.length && !groupNames.length}}">
+      <view class="label" style="margin-top:0">輸入過的群名</view>
+      <view class="g-tag g-tag--pick" hover-class="opt-hover" wx:for="{{savedGroups}}" wx:key="*this" data-name="{{item}}" bindtap="pickSaved">＋ {{item}}</view>
+    </view>
+
+    <view class="label">公告內容</view>
+    <textarea class="textarea" value="{{announcement}}" bindinput="onAnnouncement" placeholder="把群公告全文貼在這裡，成員答題時會看到這一段" placeholder-class="ph" maxlength="20000" />
+    <view class="btn-group">
+      <button class="btn btn-quiet btn-sm" hover-class="btn-hover" bindtap="pasteAnnouncement">從剪貼簿貼上</button>
+    </view>
+
+    <view class="label">作答範圍</view>
+    <view class="chip-row">
+      <view class="chip {{bindMode === 'group' ? 'chip-on' : ''}}" hover-class="opt-hover" data-mode="group" bindtap="setBindMode">綁定群組</view>
+      <view class="chip {{bindMode === 'open' ? 'chip-on' : ''}}" hover-class="opt-hover" data-mode="open" bindtap="setBindMode">開放作答</view>
+    </view>
+    <view class="hint">綁定群組：只有從微信群卡片進入的人能提交（可同時歸屬多個群）。開放作答：拿到卡片的人都能答。</view>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <view class="sec-title" style="margin-bottom:0">題目（{{questions.length}}）</view>
+      <view class="add-btn" hover-class="opt-hover" bindtap="addQuestion">＋ 加一題</view>
+    </view>
+
+    <view class="q-card" wx:for="{{questions}}" wx:key="index">
+      <view class="row">
+        <view class="q-no">{{index + 1}}</view>
+        <view class="q-tools">
+          <picker range="{{typeLabels}}" value="{{item.typeIndex}}" data-index="{{index}}" bindchange="onQuestionType">
+            <view class="type-pill">{{typeLabels[item.typeIndex]}} ▾</view>
+          </picker>
+          <view class="del" hover-class="opt-hover" data-index="{{index}}" bindtap="removeQuestion">刪除</view>
+        </view>
+      </view>
+
+      <textarea class="textarea q-title" value="{{item.title}}" data-index="{{index}}" bindinput="onQuestionTitle" placeholder="題目內容" placeholder-class="ph" maxlength="300" />
+
+      <view wx:if="{{item.type === 'choice'}}" class="opt-editor">
+        <input class="input" value="{{item.optionsText}}" data-index="{{index}}" bindinput="onQuestionOptions" placeholder="選項用逗號分隔：同意，有疑問，不同意" placeholder-class="ph" />
+      </view>
+
+      <view class="q-foot">
+        <view class="req-toggle">
+          <switch checked="{{item.required}}" data-index="{{index}}" bindchange="onQuestionRequired" color="#4F46E5" style="transform:scale(0.72)" />
+          <text class="muted">必填</text>
+        </view>
+        <view class="faint">key：{{item.k}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="submit-bar">
+    <button class="btn btn-primary" hover-class="btn-hover" bindtap="submit" loading="{{submitting}}" disabled="{{submitting}}">建立問卷</button>
+    <view class="hint" style="text-align:center">建立後可立刻分享問卷卡片到微信群</view>
+  </view>
+</view>

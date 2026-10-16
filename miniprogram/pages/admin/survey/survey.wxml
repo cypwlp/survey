@@ -1,0 +1,75 @@
+<view class="head">
+  <view class="head-inner">
+    <view class="row">
+      <view class="head-eyebrow">問卷詳情</view>
+      <view class="tag {{survey.isClosed ? 'tag-end' : 'tag-live'}}" wx:if="{{survey}}">
+        <text class="dot {{survey.isClosed ? 'dot-end' : 'dot-live'}}"></text>{{survey.isClosed ? '已結束' : '進行中'}}
+      </view>
+    </view>
+    <view class="head-title">{{survey.title}}</view>
+    <view class="head-sub" wx:if="{{survey}}">{{survey.groupName || '未填群名'}}｜{{survey.bindMode === 'group' ? (survey.hasGroupBound ? '已有 ' + survey.groups.length + ' 個群加入' : '還沒有人從群裡進來') : '開放作答'}}</view>
+  </view>
+</view>
+
+<view class="wrap">
+  <view wx:if="{{loading}}" class="card card--overlap empty"><view class="empty-glyph">◍</view>載入中…</view>
+  <view wx:elif="{{error}}" class="card card--overlap"><view class="err-box">{{error}}</view></view>
+
+  <block wx:elif="{{survey}}">
+    <view class="card card--overlap" wx:if="{{survey.isCreator}}">
+      <view class="sec-title">分享到微信群</view>
+      <button class="btn btn-primary" hover-class="btn-hover" open-type="share">送出問卷卡片</button>
+      <view class="hint">分享前請確認已開啟「群分享攜帶 shareTicket」；成員必須從群裡的卡片進入，系統才能綁定該群。</view>
+      <view class="btn-group">
+        <button class="btn btn-ghost btn-sm" hover-class="btn-hover" bindtap="goStats">查看統計</button>
+        <button class="btn btn-quiet btn-sm" hover-class="btn-hover" bindtap="copyPath">複製進入路徑</button>
+      </view>
+    </view>
+
+    <view class="grid2" wx:if="{{survey.isCreator}}">
+      <view class="tile" hover-class="item-hover" bindtap="toggleClose">
+        <view class="tile-t">{{survey.isClosed ? '重新開放' : '結束問卷'}}</view>
+        <view class="faint">{{survey.isClosed ? '讓成員能繼續提交' : '停止接收新答案'}}</view>
+      </view>
+      <view class="tile {{survey.bindMode === 'group' && survey.hasGroupBound ? '' : 'tile--off'}}"
+            hover-class="item-hover" bindtap="unbind"
+            wx:if="{{survey.bindMode === 'group' && survey.hasGroupBound}}">
+        <view class="tile-t">解除全部群綁定</view>
+        <view class="faint">清掉已加入的群，重新累計</view>
+      </view>
+    </view>
+
+    <view class="card card--flat" wx:if="{{survey.bindMode === 'group' && survey.groups.length}}">
+      <view class="sec-title">已加入的群（{{survey.groups.length}}）</view>
+      <view class="g-line" wx:for="{{survey.groups}}" wx:key="openGId">
+        <view class="g-no">{{index + 1}}</view>
+        <view class="g-body">
+          <view class="g-id">{{item.openGId}}</view>
+          <view class="faint">首次進入：{{item.firstSeenAt}}</view>
+        </view>
+      </view>
+      <view class="hint" wx:if="{{survey.groups.length === 1}}">把同一張卡片再轉發到別的群，那個群也會自動加入（多群模型）。</view>
+    </view>
+
+    <view class="card card--tint" wx:if="{{survey.announcement}}">
+      <view class="sec-title">公告內容</view>
+      <view class="announce">{{survey.announcement}}</view>
+    </view>
+
+    <view class="card">
+      <view class="sec-title">題目（{{survey.questions.length}}）</view>
+      <view class="q-line" wx:for="{{survey.questions}}" wx:key="k">
+        <view class="q-no">{{index + 1}}</view>
+        <view class="q-body">
+          <view class="q-t">{{item.title}}</view>
+          <view class="q-tags">
+            <text class="mini">{{item.type === 'choice' ? '單選' : (item.type === 'date' ? '日期' : '填充')}}</text>
+            <text class="mini {{item.required ? 'mini-req' : ''}}">{{item.required ? '必填' : '選填'}}</text>
+            <text class="mini mini-key">{{item.k}}</text>
+          </view>
+          <view class="faint" wx:if="{{item.type === 'choice'}}">{{item.options}}</view>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

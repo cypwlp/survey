@@ -1,0 +1,60 @@
+<view class="hero">
+  <view class="hero-glow"></view>
+  <view class="hero-inner">
+    <view class="hero-eyebrow">5W1H · 群公告回執</view>
+    <view class="hero-title">把公告變成<text class="hero-break"></text>一份可回收的問卷</view>
+    <view class="hero-sub">貼上群公告 → 分享卡片到群 → 成員答題 → 看統計與匯出</view>
+  </view>
+</view>
+
+<view class="wrap">
+  <view class="card card--overlap">
+    <view class="act" hover-class="act-hover" bindtap="goCreate">
+      <view class="act-ico act-ico--a">＋</view>
+      <view class="act-body">
+        <view class="act-title">建立問卷</view>
+        <view class="muted">管理員：填群名、貼公告、確認題目</view>
+      </view>
+      <view class="act-arrow">›</view>
+    </view>
+    <view class="divider"></view>
+    <view class="act" hover-class="act-hover" bindtap="goList">
+      <view class="act-ico act-ico--b">≡</view>
+      <view class="act-body">
+        <view class="act-title">我的問卷</view>
+        <view class="muted">查看回收狀況、分享與匯出</view>
+      </view>
+      <view class="act-arrow">›</view>
+    </view>
+  </view>
+
+  <view class="card card--tint">
+    <view class="sec-title">使用流程</view>
+    <view class="step" wx:for="{{steps}}" wx:key="t">
+      <view class="step-no">{{index + 1}}</view>
+      <view class="step-body">
+        <view class="step-t">{{item.t}}</view>
+        <view class="muted">{{item.d}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <view class="sec-title" style="margin-bottom:0">連線狀態</view>
+      <view class="tag {{openid ? 'tag-live' : 'tag-warn'}}">
+        <text class="dot {{openid ? 'dot-live' : ''}}"></text>{{openid ? '已登入' : '未登入'}}
+      </view>
+    </view>
+    <view class="divider"></view>
+    <view wx:if="{{openid}}" class="kv"><text class="kv-k">openid</text><text class="kv-v">{{openid}}</text></view>
+    <block wx:else>
+      <view class="err-box">{{loginErr || '登入進行中…'}}</view>
+      <view class="btn-group">
+        <button class="btn btn-ghost btn-sm" hover-class="btn-hover" bindtap="retryLogin">重試登入</button>
+      </view>
+    </block>
+    <view class="kv" style="margin-top:16rpx"><text class="kv-k">後端</text><text class="kv-v">{{apiBase}}</text></view>
+    <view class="hint">開發提示：開發者工具「詳情 → 本地設置」勾選不校驗合法域名；要演練群綁定請在 config.js 設定 DEV_OPEN_GID</view>
+  </view>
+</view>

@@ -1,0 +1,129 @@
+.hero {
+  position: relative;
+  background: linear-gradient(140deg, #4f46e5 0%, #6d3ae8 50%, #9333ea 100%);
+  padding: 68rpx 44rpx 116rpx;
+  overflow: hidden;
+  border-bottom-left-radius: 44rpx;
+  border-bottom-right-radius: 44rpx;
+}
+
+.hero-glow {
+  position: absolute;
+  right: -120rpx;
+  top: -140rpx;
+  width: 460rpx;
+  height: 460rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0) 70%);
+}
+
+.hero-inner { position: relative; }
+
+.hero-eyebrow {
+  display: inline-block;
+  font-size: 22rpx;
+  letter-spacing: 2rpx;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 999rpx;
+  padding: 8rpx 22rpx;
+  margin-bottom: 22rpx;
+}
+
+.hero-title {
+  color: #fff;
+  font-size: 46rpx;
+  font-weight: 700;
+  line-height: 1.32;
+  letter-spacing: 0.6rpx;
+}
+
+.hero-break { display: block; height: 4rpx; }
+
+.hero-sub {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 25rpx;
+  margin-top: 16rpx;
+}
+
+/* 主操作列 */
+.act {
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+  padding: 10rpx 0;
+  transition: opacity 0.15s ease;
+}
+
+.act-hover { opacity: 0.62; }
+
+.act-ico {
+  width: 84rpx;
+  height: 84rpx;
+  border-radius: 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.act-ico--a { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+.act-ico--b { background: linear-gradient(135deg, #0ea5e9, #6366f1); }
+
+.act-body { flex: 1; }
+
+.act-title {
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.act-arrow {
+  font-size: 46rpx;
+  color: var(--faint);
+  line-height: 1;
+}
+
+/* 流程 */
+.step {
+  display: flex;
+  gap: 20rpx;
+  padding: 16rpx 0;
+}
+
+.step-no {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 14rpx;
+  background: rgba(79, 70, 229, 0.09);
+  color: var(--primary);
+  font-size: 24rpx;
+  font-weight: 700;
+  text-align: center;
+  line-height: 44rpx;
+  flex-shrink: 0;
+}
+
+.step-t { font-size: 28rpx; font-weight: 600; }
+
+.step-body { flex: 1; }
+
+/* 鍵值列 */
+.kv {
+  display: flex;
+  align-items: baseline;
+  gap: 18rpx;
+}
+
+.kv-k {
+  font-size: 22rpx;
+  color: var(--faint);
+  flex-shrink: 0;
+}
+
+.kv-v {
+  font-size: 24rpx;
+  color: var(--muted);
+  word-break: break-all;
+}

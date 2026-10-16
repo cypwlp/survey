@@ -1,0 +1,49 @@
+<view class="head">
+  <view class="head-inner">
+    <view class="head-eyebrow">管理端</view>
+    <view class="head-title">我的問卷</view>
+    <view class="head-sub">共 {{list.length}} 份{{loading ? ' · 載入中' : ''}}</view>
+  </view>
+</view>
+
+<view class="wrap">
+  <view wx:if="{{loading}}" class="card card--overlap empty">
+    <view class="empty-glyph">◍</view>載入中…
+  </view>
+  <view wx:elif="{{error}}" class="card card--overlap">
+    <view class="err-box">{{error}}</view>
+  </view>
+  <view wx:elif="{{!list.length}}" class="card card--overlap empty">
+    <view class="empty-glyph">◍</view>還沒有問卷，點右下角 ＋ 建立
+  </view>
+
+  <view class="item" wx:for="{{list}}" wx:key="SurveyId" data-id="{{item.SurveyId}}" bindtap="open" hover-class="item-hover">
+    <view class="row">
+      <view class="i-title">{{item.Title}}</view>
+      <view class="tag {{item.IsClosed ? 'tag-end' : 'tag-live'}}">
+        <text class="dot {{item.IsClosed ? 'dot-end' : 'dot-live'}}"></text>{{item.IsClosed ? '已結束' : '進行中'}}
+      </view>
+    </view>
+
+    <view class="i-meta">{{item.GroupName || '未填群名'}}｜{{item.BindMode === 'group' ? (item.OpenGId ? '已綁定群' : '待綁定') : '開放作答'}}</view>
+
+    <view class="i-stats">
+      <view class="i-stat">
+        <view class="i-num">{{item.AnswerCount}}</view>
+        <view class="faint">份提交</view>
+      </view>
+      <view class="i-sep"></view>
+      <view class="i-stat">
+        <view class="i-num">{{item.VisitCount}}</view>
+        <view class="faint">人開啟</view>
+      </view>
+      <view class="i-sep"></view>
+      <view class="i-stat">
+        <view class="i-num i-num--sm">{{item.dateText}}</view>
+        <view class="faint">建立</view>
+      </view>
+    </view>
+  </view>
+</view>
+
+<view class="fab" hover-class="fab-hover" bindtap="goCreate">＋</view>

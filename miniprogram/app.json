@@ -1,0 +1,19 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/admin/create/create",
+    "pages/admin/list/list",
+    "pages/admin/survey/survey",
+    "pages/admin/stats/stats",
+    "pages/answer/answer"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#4f46e5",
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "群公告問卷",
+    "backgroundColor": "#f4f6fb",
+    "backgroundTextStyle": "dark"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

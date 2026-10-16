@@ -1,0 +1,19 @@
+{
+  "description": "微信群公告 5W1H 問卷",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "appid": "wx07d9f0e6c8fba227",
+  "projectname": "survey-system",
+  "libVersion": "3.17.4",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "ignoreDevUnusedFiles": false,
+    "checkSiteMap": false,
+    "minifyWXML": true
+  },
+  "simulatorPluginLibVersion": {}
+}
