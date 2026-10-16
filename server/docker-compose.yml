@@ -7,6 +7,11 @@
 #
 # 用法：把 server/ 複製到 213，在該目錄執行
 #   docker compose up -d --build
+#
+# 2026-10-16：補上 name（原本沒指定，Compose 會拿資料夾名「server」當專案名，
+# 導致網路被建成 server_default）。改為 survey 後網路是 survey_default。
+name: survey
+
 services:
   survey-api:
     build: .
