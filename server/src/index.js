@@ -6,7 +6,9 @@ const app = createApp();
 app.listen(config.port, async () => {
   const mode = config.dbDriver === 'mssql'
     ? `SQL Server ${config.db.server}:${config.db.port}/${config.db.database}`
-    : 'memory（重啟即清空）';
+    : config.dbDriver === 'mysql'
+      ? `MySQL ${config.db.host}:${config.db.port}/${config.db.database}`
+      : 'memory（重啟即清空）';
   console.log(`Survey-System server listening on http://0.0.0.0:${config.port}`);
   console.log(`  DB  ：${mode}`);
   console.log(`  微信 ：${wxDevMode ? 'dev 模式（未設 WX_APPID/WX_SECRET，允許假 openid/openGId 演練）' : '正式模式'}`);
@@ -14,7 +16,16 @@ app.listen(config.port, async () => {
   const dbState = await checkDb();
   if (!dbState.ok) {
     console.error(`  ✗ 資料庫連不上：${dbState.detail}`);
-    console.error('    檢查 .env 的 DB_SERVER/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME，以及 SQL Server 是否允許 TCP 1433 與 SQL 驗證');
+    console.error('    檢查 .env 的 DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME（mssql 也可寫 DB_SERVER），以及資料庫是否允許 TCP 連線與帳密驗證');
+  } else if (dbState.driver === 'mysql') {
+    console.log(`  ✓ 已連線：${dbState.detail}｜${dbState.version}`);
+    if (!dbState.tablesOk) {
+      console.error(`  ✗ 資料表不就緒（只找到 ${dbState.tables}/5 張：需要 Survey / Answer / Visit / SurveyGroup / GroupName）`);
+      console.error('    在雲托管 MySQL 控制台（或本機 mysql 客戶端）執行一次 database/06_mysql_schema.sql');
+    } else {
+      const r = dbState.rows;
+      console.log(`  ✓ 結構就緒：五張表可用（Survey=${r.Survey} Answer=${r.Answer} Visit=${r.Visit}）`);
+    }
   } else if (dbState.driver === 'mssql') {
     console.log(`  ✓ 已連線：${dbState.detail}｜${dbState.version}`);
     if (!dbState.tablesOk) {

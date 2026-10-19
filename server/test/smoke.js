@@ -132,6 +132,14 @@ ok('XLSX content-type 正確', (xlsxRaw.headers.get('content-type') || '').inclu
 ok('XLSX 為合法 ZIP 檔頭（PK）', xlsxBuf[0] === 0x50 && xlsxBuf[1] === 0x4b, `first2=${xlsxBuf.slice(0, 2).toString()}`);
 ok('XLSX 有實質內容（>3KB）', xlsxBuf.length > 3000, `size=${xlsxBuf.length}`);
 
+// 雲托管 callcontainer 沒有 downloadFile 可用（回包上限 1000KiB），
+// 所以多驗一條 ?format=base64：前端自己寫檔再 openDocument。
+const xlsxB64Raw = await fetch(base + `/surveys/${sid}/export.xlsx?format=base64`, { headers: { Authorization: `Bearer ${admin.token}` } });
+const xlsxB64 = await xlsxB64Raw.json();
+ok('XLSX base64 模式回 JSON 檔名', xlsxB64Raw.status === 200 && xlsxB64.filename === `survey-${sid}.xlsx` && !!xlsxB64.base64, JSON.stringify({ status: xlsxB64Raw.status, keys: Object.keys(xlsxB64 || {}) }));
+const xlsxDecoded = Buffer.from(xlsxB64.base64, 'base64');
+ok('base64 解回同一個 ZIP（PK 檔頭、位元組數相符）', xlsxDecoded[0] === 0x50 && xlsxDecoded[1] === 0x4b && xlsxDecoded.length === xlsxB64.bytes, `decoded=${xlsxDecoded.length} bytes=${xlsxB64.bytes}`);
+
 const list = await call('GET', '/surveys', { token: admin.token });
 ok('清單帶計數', list.json.list.length === 1 && list.json.list[0].VisitCount === 3 && list.json.list[0].AnswerCount === 3);
 
@@ -140,7 +148,24 @@ const detailM1 = await call('GET', `/surveys/${sid}`, { token: m1.token });
 ok('m1 看得到自己的答案', detailM1.json.myAnswers?.find((a) => a.k === 'what')?.value === '改用新流程');
 ok('m1 非建立者', detailM1.json.isCreator === false);
 
-console.log('== 7. 結束問卷與 open 模式 ==');
+console.log('== 7. 調整題目順序（reorder）==');
+const roNoOrder = await call('POST', `/surveys/${sid}/reorder`, { token: admin.token, body: {} });
+ok('沒帶 order 被擋 400', roNoOrder.status === 400);
+const roBad = await call('POST', `/surveys/${sid}/reorder`, { token: admin.token, body: { order: ['ok', 'what'] } });
+ok('順序缺題被擋 400', roBad.status === 400);
+const roDup = await call('POST', `/surveys/${sid}/reorder`, { token: admin.token, body: { order: ['ok', 'ok', 'what'] } });
+ok('順序重複 key 被擋 400', roDup.status === 400);
+const roForbidden = await call('POST', `/surveys/${sid}/reorder`, { token: m1.token, body: { order: ['ok', 'what', 'when'] } });
+ok('非建立者調順序被擋 403', roForbidden.status === 403);
+const roOk = await call('POST', `/surveys/${sid}/reorder`, { token: admin.token, body: { order: ['ok', 'what', 'when'] } });
+ok('調順序成功（ok,what,when）', roOk.status === 200 && roOk.json.questions.map((q) => q.k).join(',') === 'ok,what,when', JSON.stringify(roOk.json));
+const detailAfter = await call('GET', `/surveys/${sid}`, { token: admin.token });
+ok('詳情頁新順序已生效', detailAfter.json.questions.map((q) => q.k).join(',') === 'ok,what,when');
+const statsAfter = await call('GET', `/surveys/${sid}/stats`, { token: admin.token });
+const whatAfter = statsAfter.json.questions.find((q) => q.k === 'what');
+ok('已回收答案仍對上題目（what 仍 3 份）', !!whatAfter && whatAfter.answerCount === 3, JSON.stringify(statsAfter.json.questions.map((q) => `${q.k}:${q.answerCount}`)));
+
+console.log('== 8. 結束問卷與 open 模式 ==');
 await call('POST', `/surveys/${sid}/close`, { token: admin.token, body: { closed: true } });
 const m4 = await login('dev:m4');
 const a4 = await call('POST', `/surveys/${sid}/answer`, {
@@ -160,13 +185,13 @@ const a5 = await call('POST', `/surveys/${osid}/answer`, {
 });
 ok('open 模式無分享資訊可答', a5.status === 200, JSON.stringify(a5.json));
 
-console.log('== 8. 綁定管理 ==');
+console.log('== 9. 綁定管理 ==');
 const unbind = await call('POST', `/surveys/${sid}/unbind`, { token: admin.token });
 ok('解除綁定成功', unbind.json.ok === true);
 const sr2 = await call('POST', `/surveys/${sid}/shareresolve`, { token: m3.token, body: { devOpenGId: 'gid-B' } });
 ok('解除後可重新加入群（groupCount 回到 1）', sr2.json.justAdded === true && sr2.json.groupCount === 1, JSON.stringify(sr2.json));
 
-console.log('== 9. date 題型（設計要求：When 用時間選擇）==');
+console.log('== 10. date 題型（設計要求：When 用時間選擇）==');
 const dsurv = await call('POST', '/surveys', {
   token: admin.token,
   body: { title: '日期題測試', bindMode: 'open', questions: [{ k: 'due', type: 'date', title: '你哪天可以？', required: true }] },
@@ -180,7 +205,20 @@ ok('合法日期可提交', goodDate.status === 200, JSON.stringify(goodDate.jso
 const badType = await call('POST', '/surveys', { token: admin.token, body: { title: 'x', questions: [{ k: 'a', type: 'radio', title: 'y' }] } });
 ok('未知題型被擋 400', badType.status === 400);
 
-console.log('== 10. 快取標頭（wx.request 帶 If-None-Match 時不能被回 304）==');
+console.log('== 11. 群名歷史（存資料庫，換手機不丟）==');
+const gnNoAuth = await call('GET', '/groupnames');
+ok('群名清單也要登入才看得到 401', gnNoAuth.status === 401);
+const gnPost = await call('POST', '/groupnames', { token: admin.token, body: { names: ['Topmix 生產部群', 'Topmix 品保群'] } });
+ok('寫入兩個群名', gnPost.status === 200 && gnPost.json.saved === 2 && gnPost.json.names.length === 2, JSON.stringify(gnPost.json));
+const gnRe = await call('POST', '/groupnames', { token: admin.token, body: { names: ['Topmix 生產部群'] } });
+ok('重複寫入不產生新列，只累計使用次數', gnRe.json.names.length === 2 && gnRe.json.list.find((g) => g.name === 'Topmix 生產部群').useCount === 2, JSON.stringify(gnRe.json.list));
+ok('最後使用的排前面', gnRe.json.names[0] === 'Topmix 生產部群', JSON.stringify(gnRe.json.names));
+const gnOther = await call('GET', '/groupnames', { token: m1.token });
+ok('群名歷史按管理員隔離（看不到別人的）', gnOther.json.names.length === 0, JSON.stringify(gnOther.json));
+const gnDirty = await call('POST', '/groupnames', { token: admin.token, body: { names: ['   ', '長'.repeat(200)] } });
+ok('空白忽略、超長截到 100 字', gnDirty.json.saved === 1 && gnDirty.json.names.some((n) => n.length === 100), JSON.stringify({ saved: gnDirty.json.saved, lens: gnDirty.json.names.map((n) => n.length) }));
+
+console.log('== 12. 快取標頭（wx.request 帶 If-None-Match 時不能被回 304）==');
 const first = await fetch(base + '/surveys', { headers: { Authorization: `Bearer ${admin.token}` } });
 const firstText = await first.text();
 ok('回應不帶 ETag', first.headers.get('etag') === null, String(first.headers.get('etag')));

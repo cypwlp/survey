@@ -2,7 +2,7 @@
   <view class="head-inner">
     <view class="head-eyebrow">管理員</view>
     <view class="head-title">建立問卷</view>
-    <view class="head-sub">預設已套用 5W 題目，可直接修改或增删</view>
+    <view class="head-sub">預設已套用 5W 題目，可直接修改、增删，或用 ▲▼ 調順序</view>
   </view>
 </view>
 
@@ -11,7 +11,7 @@
     <view class="sec-title">基本信息</view>
 
     <view class="label">問卷標題</view>
-    <input class="input" value="{{title}}" bindinput="onTitle" placeholder="例：十月新流程群公告確認" placeholder-class="ph" maxlength="100" />
+    <textarea class="textarea title-box" value="{{title}}" bindinput="onTitle" placeholder="例：十月新流程群公告確認" placeholder-class="ph" maxlength="100" auto-height />
 
     <view class="label">群名稱（可加多個，這份問卷就能發到多個群）</view>
     <view class="tags" wx:if="{{groupNames.length}}">
@@ -24,12 +24,13 @@
       <input class="input" style="flex:1" value="{{groupInput}}" bindinput="onGroupInput" placeholder="例：Topmix 生產部群" placeholder-class="ph" maxlength="100" confirm-type="完成" bindconfirm="addGroupName" />
       <view class="add-tag" hover-class="opt-hover" bindtap="addGroupName">加入</view>
     </view>
-    <view class="hint">小程序讀不到微信群名（微信限制），這裡由管理員填寫，用於後台歸類；加好的群名會記在這台手機上，下次可直接選。</view>
-
-    <view class="saved" wx:if="{{savedGroups.length && !groupNames.length}}">
-      <view class="label" style="margin-top:0">輸入過的群名</view>
-      <view class="g-tag g-tag--pick" hover-class="opt-hover" wx:for="{{savedGroups}}" wx:key="*this" data-name="{{item}}" bindtap="pickSaved">＋ {{item}}</view>
+    <view class="saved" wx:if="{{savedList.length}}">
+      <view class="label" style="margin-top:0">以前輸入過的群名（可多選：點一下加入，再點取消）</view>
+      <view class="tags">
+        <view class="g-tag {{item.on ? 'g-tag--on' : ''}}" hover-class="opt-hover" wx:for="{{savedList}}" wx:key="name" data-name="{{item.name}}" bindtap="toggleSaved">{{item.on ? '✓ ' : '＋ '}}{{item.name}}</view>
+      </view>
     </view>
+    <view class="hint">小程序讀不到微信群名（微信限制），這裡由管理員填寫，用於後台歸類；加好的群名會記在這台手機上，下次可直接選。</view>
 
     <view class="label">公告內容</view>
     <textarea class="textarea" value="{{announcement}}" bindinput="onAnnouncement" placeholder="把群公告全文貼在這裡，成員答題時會看到這一段" placeholder-class="ph" maxlength="20000" />
@@ -51,10 +52,12 @@
       <view class="add-btn" hover-class="opt-hover" bindtap="addQuestion">＋ 加一題</view>
     </view>
 
-    <view class="q-card" wx:for="{{questions}}" wx:key="index">
+    <view class="q-card" wx:for="{{questions}}" wx:key="uid">
       <view class="row">
         <view class="q-no">{{index + 1}}</view>
         <view class="q-tools">
+          <view class="mv {{index === 0 ? 'mv-off' : ''}}" hover-class="opt-hover" data-index="{{index}}" data-dir="-1" bindtap="moveQuestion">▲</view>
+          <view class="mv {{index === questions.length - 1 ? 'mv-off' : ''}}" hover-class="opt-hover" data-index="{{index}}" data-dir="1" bindtap="moveQuestion">▼</view>
           <picker range="{{typeLabels}}" value="{{item.typeIndex}}" data-index="{{index}}" bindchange="onQuestionType">
             <view class="type-pill">{{typeLabels[item.typeIndex]}} ▾</view>
           </picker>

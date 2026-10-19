@@ -20,24 +20,31 @@
 
 .g-del { font-size: 22rpx; color: var(--faint); padding: 0 2rpx; }
 
-.g-tag--pick {
-  color: var(--muted);
-  background: #f6f8fc;
-  border-color: var(--line);
-  font-weight: 400;
+.g-tag--on {
+  color: #fff;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  border-color: transparent;
 }
 
 .add-tag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 104rpx;
   font-size: 26rpx;
   font-weight: 600;
   color: #fff;
   background: linear-gradient(135deg, #4f46e5, #7c3aed);
   border-radius: 14rpx;
-  padding: 18rpx 34rpx;
+  padding: 0 34rpx;
   flex-shrink: 0;
 }
 
 .row .input { width: auto; }
+
+/* 標題用可長高的 textarea，比單行 input 好按、也看得完整 */
+.title-box { min-height: 104rpx; line-height: 1.5; }
 
 .saved {
   background: #fafbfd;
@@ -96,6 +103,19 @@
   color: var(--danger);
   padding: 8rpx 4rpx;
 }
+
+.mv {
+  width: 56rpx;
+  height: 44rpx;
+  border-radius: 12rpx;
+  background: #f1f4f9;
+  color: var(--muted);
+  font-size: 22rpx;
+  text-align: center;
+  line-height: 44rpx;
+}
+
+.mv-off { opacity: 0.25; }
 
 .q-title {
   min-height: 120rpx;

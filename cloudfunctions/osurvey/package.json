@@ -1,0 +1,13 @@
+{
+  "name": "osurvey",
+  "version": "1.0.0",
+  "description": "微信群公告 5W1H 问卷 — 云开发云函数（单函数 + 路径路由，取代自架 Express）",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/local-smoke.js"
+  },
+  "dependencies": {
+    "wx-server-sdk": "latest",
+    "exceljs": "^4.4.0"
+  }
+}

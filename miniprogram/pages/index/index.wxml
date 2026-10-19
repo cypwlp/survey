@@ -47,14 +47,14 @@
       </view>
     </view>
     <view class="divider"></view>
-    <view wx:if="{{openid}}" class="kv"><text class="kv-k">openid</text><text class="kv-v">{{openid}}</text></view>
-    <block wx:else>
+    <view wx:if="{{openid && devMode}}" class="kv"><text class="kv-k">openid</text><text class="kv-v">{{openid}}</text></view>
+    <block wx:if="{{!openid}}">
       <view class="err-box">{{loginErr || '登入進行中…'}}</view>
       <view class="btn-group">
         <button class="btn btn-ghost btn-sm" hover-class="btn-hover" bindtap="retryLogin">重試登入</button>
       </view>
     </block>
-    <view class="kv" style="margin-top:16rpx"><text class="kv-k">後端</text><text class="kv-v">{{apiBase}}</text></view>
-    <view class="hint">開發提示：開發者工具「詳情 → 本地設置」勾選不校驗合法域名；要演練群綁定請在 config.js 設定 DEV_OPEN_GID</view>
+    <view class="kv" style="margin-top:16rpx" wx:if="{{devMode}}"><text class="kv-k">後端</text><text class="kv-v">{{apiBase}}</text></view>
+    <view class="hint" wx:if="{{devMode}}">開發提示：開發者工具「詳情 → 本地設置」勾選不校驗合法域名；要演練群綁定請在 config.js 設定 DEV_OPEN_GID</view>
   </view>
 </view>

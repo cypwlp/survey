@@ -1,0 +1,20 @@
+{
+  "description": "微信群公告 5W1H 问卷（小程序 + 云开发云函数）。用开发者工具打开『本目录』，不要打开 miniprogram 子目录——云函数在 cloudfunctions/ 才能上传。",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "miniprogram/",
+  "cloudfunctionRoot": "cloudfunctions/",
+  "appid": "wx07d9f0e6c8fba227",
+  "projectname": "survey-system",
+  "libVersion": "3.17.4",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "ignoreDevUnusedFiles": false,
+    "checkSiteMap": false,
+    "minifyWXML": true
+  },
+  "simulatorPluginLibVersion": {}
+}

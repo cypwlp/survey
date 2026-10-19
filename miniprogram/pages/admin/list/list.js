@@ -42,4 +42,23 @@ Page({
   goCreate() {
     wx.navigateTo({ url: '/pages/admin/create/create' });
   },
+
+  // 隱私指引承諾保存 365 天：一鍵清理自己問卷裡超過期限的答卷與開啟記錄
+  async purgeOld() {
+    const modal = await new Promise((r) => wx.showModal({
+      title: '清理舊數據',
+      content: '將刪除你名下問卷中 365 天前的答卷與開啟記錄（不可恢復），問卷本身保留。確定嗎？',
+      confirmText: '清理',
+      confirmColor: '#ef4444',
+      success: r,
+    }));
+    if (!modal.confirm) return;
+    try {
+      const res = await api.post('/admin/purge', { days: 365 });
+      wx.showToast({ title: `已清理 ${res.answers} 份答卷、${res.visits} 筆開啟`, icon: 'none' });
+      this.load();
+    } catch (e) {
+      wx.showToast({ title: e.message, icon: 'none' });
+    }
+  },
 });

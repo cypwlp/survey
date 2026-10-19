@@ -38,6 +38,27 @@ surveysRouter.get('/surveys', async (req, res) => {
   res.json({ list: await db.listSurveys(req.openid) });
 });
 
+// GET /api/groupnames  → 我的群名歷史（存資料庫，換手機不丟）
+surveysRouter.get('/groupnames', async (req, res) => {
+  const rows = await db.listGroupNames(req.openid);
+  res.json({
+    names: rows.map((r) => r.Name),
+    list: rows.map((r) => ({ name: r.Name, useCount: r.UseCount, lastUsedAt: r.LastUsedAt })),
+  });
+});
+
+// POST /api/groupnames  { names: ['a','b'] }  → 記下這些群名（已存在則累計使用次數）
+surveysRouter.post('/groupnames', async (req, res) => {
+  const names = Array.isArray(req.body?.names) ? req.body.names : [];
+  const saved = await db.touchGroupNames(req.openid, names);
+  const rows = await db.listGroupNames(req.openid);
+  res.json({
+    saved,
+    names: rows.map((r) => r.Name),
+    list: rows.map((r) => ({ name: r.Name, useCount: r.UseCount, lastUsedAt: r.LastUsedAt })),
+  });
+});
+
 // GET /api/surveys/:id  → 詳情（作答頁與管理頁共用；附我是否已作答）
 surveysRouter.get('/surveys/:id', async (req, res) => {
   const survey = await db.getSurvey(req.params.id);
@@ -73,6 +94,23 @@ surveysRouter.post('/surveys/:id/unbind', async (req, res) => {
   if (!survey) return;
   await db.clearSurveyGroup(survey.SurveyId);
   res.json({ ok: true });
+});
+
+// POST /api/surveys/:id/reorder  { order: [k, ...] }
+// 只調整「題目順序」：答案以 k 對應，已回收的答卷不受影響。
+surveysRouter.post('/surveys/:id/reorder', async (req, res) => {
+  const survey = await loadOwned(req, res);
+  if (!survey) return;
+  const order = Array.isArray(req.body?.order) ? req.body.order.map(String) : null;
+  if (!order) return res.status(400).json({ error: '缺少題目順序' });
+  const current = JSON.parse(survey.QuestionsJson);
+  const byKey = new Map(current.map((q) => [q.k, q]));
+  if (order.length !== current.length || new Set(order).size !== order.length || order.some((k) => !byKey.has(k))) {
+    return res.status(400).json({ error: '題目清單不一致，請重新載入再調整' });
+  }
+  const questions = order.map((k) => byKey.get(k));
+  await db.updateSurveyQuestions(survey.SurveyId, JSON.stringify(questions));
+  res.json({ ok: true, questions });
 });
 
 // POST /api/surveys/:id/shareresolve  { shareTicket, encryptedData, iv, devOpenGId? }

@@ -112,22 +112,27 @@
 }
 
 /* 已提交 */
-.done-card { text-align: center; padding: 44rpx 32rpx; }
+.done-card { text-align: center; padding: 52rpx 32rpx 44rpx; }
 
 .done-ico {
-  width: 96rpx;
-  height: 96rpx;
-  line-height: 96rpx;
-  margin: 0 auto 18rpx;
+  width: 118rpx;
+  height: 118rpx;
+  line-height: 118rpx;
+  margin: 0 auto 22rpx;
   border-radius: 50%;
   background: linear-gradient(135deg, #10b981, #059669);
   color: #fff;
-  font-size: 46rpx;
+  font-size: 56rpx;
+  box-shadow: 0 14rpx 30rpx rgba(16, 185, 129, 0.32);
 }
 
 .done-ico--off { background: linear-gradient(135deg, #94a3b8, #64748b); }
 
 .done-t { font-size: 34rpx; font-weight: 700; margin-bottom: 8rpx; }
+
+.done-time { margin-bottom: 6rpx; }
+
+.done-card .btn-group { margin-top: 26rpx; }
 
 .answer-box {
   white-space: pre-wrap;

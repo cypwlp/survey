@@ -44,6 +44,11 @@
       </view>
     </view>
   </view>
+
+  <view class="purge-zone" wx:if="{{!loading && list.length}}">
+    <button class="btn btn-quiet btn-sm" hover-class="btn-hover" bindtap="purgeOld">清理 365 天前的舊答卷</button>
+    <view class="hint">只清你名下問卷中超過保存期限（365 天）的答卷與開啟記錄，問卷本身保留。</view>
+  </view>
 </view>
 
 <view class="fab" hover-class="fab-hover" bindtap="goCreate">＋</view>

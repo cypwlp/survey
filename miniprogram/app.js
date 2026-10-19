@@ -8,6 +8,8 @@ App({
 
   onLaunch(options) {
     this.captureShare(options);
+    // 雲開發／雲托管鏈路要先 wx.cloud.init（idempotent，重複呼叫沒關係）
+    if (api.usesCloudFunction() || api.usesContainer()) api.initCloud();
     api.ensureLogin().catch((e) => console.warn('登入失敗', e));
   },
 

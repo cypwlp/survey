@@ -181,7 +181,17 @@ statsRouter.get('/surveys/:id/export.xlsx', async (req, res) => {
   }
 
   const buf = Buffer.from(await wb.xlsx.writeBuffer());
+  const filename = `survey-${survey.SurveyId}.xlsx`;
+  // 小程序走雲托管 callcontainer 時沒有「下載域名」可用（單次回包上限 1000KiB），
+  // 所以多一條 ?format=base64：前端拿到 base64 自己寫檔再 openDocument，
+  // 這條路在 https 直連模式下也通，就不必再配置 downloadFile 合法域名。
+  if (req.query.format === 'base64') {
+    if (buf.length > 640 * 1024) {
+      return res.status(413).json({ error: `這份問卷較大（${Math.round(buf.length / 1024)}KB），請改用「匯出 CSV」` });
+    }
+    return res.json({ filename, bytes: buf.length, base64: buf.toString('base64') });
+  }
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename="survey-${survey.SurveyId}.xlsx"`);
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.send(buf);
 });

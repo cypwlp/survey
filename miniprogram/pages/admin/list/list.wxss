@@ -65,3 +65,10 @@
 }
 
 .fab-hover { transform: scale(0.92); }
+
+.purge-zone {
+  padding: 6rpx 6rpx 150rpx;
+  text-align: center;
+}
+
+.purge-zone .btn { padding-left: 0; padding-right: 0; }

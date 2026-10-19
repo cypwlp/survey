@@ -57,19 +57,69 @@
     </view>
 
     <view class="card">
-      <view class="sec-title">題目（{{survey.questions.length}}）</view>
-      <view class="q-line" wx:for="{{survey.questions}}" wx:key="k">
-        <view class="q-no">{{index + 1}}</view>
-        <view class="q-body">
-          <view class="q-t">{{item.title}}</view>
-          <view class="q-tags">
-            <text class="mini">{{item.type === 'choice' ? '單選' : (item.type === 'date' ? '日期' : '填充')}}</text>
-            <text class="mini {{item.required ? 'mini-req' : ''}}">{{item.required ? '必填' : '選填'}}</text>
-            <text class="mini mini-key">{{item.k}}</text>
-          </view>
-          <view class="faint" wx:if="{{item.type === 'choice'}}">{{item.options}}</view>
-        </view>
+      <view class="row">
+        <view class="sec-title" style="margin-bottom:0">題目（{{survey.questions.length}}）</view>
+      <view class="edit-btn" wx:if="{{survey.isCreator && !editMode}}" hover-class="opt-hover" bindtap="toggleEdit">編輯題目</view>
       </view>
+    <view class="hint" wx:if="{{editMode}}">可改題干、類型、選項與必填，也能加題／刪題／調順序。答案以題目編號對應：已提交的答卷不受影響，刪掉的題目不再統計。</view>
+
+    <block wx:if="{{!editMode}}">
+        <view class="q-line" wx:for="{{survey.questions}}" wx:key="k">
+          <view class="q-no">{{index + 1}}</view>
+          <view class="q-body">
+            <view class="q-t">{{item.title}}</view>
+            <view class="q-tags">
+              <text class="mini">{{item.type === 'choice' ? '單選' : (item.type === 'date' ? '日期' : '填充')}}</text>
+              <text class="mini {{item.required ? 'mini-req' : ''}}">{{item.required ? '必填' : '選填'}}</text>
+              <text class="mini mini-key">{{item.k}}</text>
+            </view>
+            <view class="faint" wx:if="{{item.type === 'choice'}}">{{item.options}}</view>
+          </view>
+        </view>
+      </block>
+
+      <block wx:else>
+        <view class="q-card" wx:for="{{draft}}" wx:key="uid">
+          <view class="row">
+            <view class="q-no">{{index + 1}}</view>
+            <view class="q-tools">
+              <view class="mv {{index === 0 ? 'mv-off' : ''}}" hover-class="opt-hover" data-index="{{index}}" data-dir="-1" bindtap="moveQuestion">▲</view>
+              <view class="mv {{index === draft.length - 1 ? 'mv-off' : ''}}" hover-class="opt-hover" data-index="{{index}}" data-dir="1" bindtap="moveQuestion">▼</view>
+              <picker range="{{typeLabels}}" value="{{item.typeIndex}}" data-index="{{index}}" bindchange="onQuestionType">
+                <view class="type-pill">{{typeLabels[item.typeIndex]}} ▾</view>
+              </picker>
+              <view class="del" hover-class="opt-hover" data-index="{{index}}" bindtap="removeQuestion">刪除</view>
+            </view>
+          </view>
+
+          <textarea class="textarea q-title" value="{{item.title}}" data-index="{{index}}" bindinput="onQuestionTitle" placeholder="題目內容" placeholder-class="ph" maxlength="300" />
+
+          <view wx:if="{{item.type === 'choice'}}" class="opt-editor">
+            <input class="input" value="{{item.optionsText}}" data-index="{{index}}" bindinput="onQuestionOptions" placeholder="選項用逗號分隔：同意，有疑問，不同意" placeholder-class="ph" />
+          </view>
+
+          <view class="q-foot">
+            <view class="req-toggle">
+              <switch checked="{{item.required}}" data-index="{{index}}" bindchange="onQuestionRequired" color="#4F46E5" style="transform:scale(0.72)" />
+              <text class="muted">必填</text>
+            </view>
+            <view class="faint" wx:if="{{item.k}}">key：{{item.k}}</view>
+          </view>
+        </view>
+
+        <view class="add-btn" hover-class="opt-hover" bindtap="addQuestion">＋ 加一題</view>
+
+        <view class="btn-group">
+          <button class="btn btn-primary btn-sm" hover-class="btn-hover" bindtap="saveQuestions" loading="{{saving}}" disabled="{{saving}}">保存修改</button>
+          <button class="btn btn-quiet btn-sm" hover-class="btn-hover" bindtap="cancelEdit">取消</button>
+        </view>
+      </block>
+    </view>
+
+    <view class="card" wx:if="{{survey.isCreator}}">
+      <view class="sec-title">刪除問卷</view>
+      <view class="hint">把這份問卷連同它的全部答卷、開啟記錄、群綁定一起刪掉，不可恢復。</view>
+      <button class="btn btn-danger btn-sm" hover-class="btn-hover" bindtap="deleteSurvey" loading="{{deleting}}" disabled="{{deleting}}">刪除這份問卷</button>
     </view>
   </block>
 </view>

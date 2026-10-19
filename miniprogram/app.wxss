@@ -145,6 +145,13 @@ page {
   background: #fff;
 }
 
+/* 單行輸入框：微信的 <input> 不會隨 padding 長高，必須顯式給高度，否則框很扁 */
+.input {
+  min-height: 104rpx;
+  padding: 28rpx 28rpx;
+  font-size: 30rpx;
+}
+
 .textarea { min-height: 200rpx; line-height: 1.6; }
 .field { text-align: center; }
 
@@ -279,6 +286,11 @@ page {
   border-radius: var(--r-md);
   padding: 18rpx 22rpx;
   line-height: 1.55;
+}
+
+.notice-ok {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.10);
 }
 
 .hint {

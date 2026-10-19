@@ -23,7 +23,8 @@
   </view>
 
   <block wx:elif="{{survey}}">
-    <view class="notice" wx:if="{{groupWarning}}">{{groupWarning}}</view>
+    <view class="notice notice-ok" wx:if="{{groupNote}}">{{groupNote}}</view>
+    <view class="notice" wx:elif="{{groupWarning}}">{{groupWarning}}</view>
     <view class="notice" wx:elif="{{survey.bindMode === 'group' && !openGId && !survey.myAnswers}}">
       請從微信群的問卷卡片進入作答，否則系統無法識別群組、提交會被擋下。
     </view>
@@ -35,9 +36,13 @@
 
     <block wx:if="{{survey.myAnswers}}">
       <view class="card done-card">
-        <view class="done-ico">✓</view>
-        <view class="done-t">已提交，謝謝！</view>
+        <view class="done-ico">🎉</view>
+        <view class="done-t">已提交，感謝配合！</view>
+        <view class="muted done-time" wx:if="{{submitTimeText}}">提交時間：{{submitTimeText}}</view>
         <view class="muted">一人限一份，如需修改請聯絡管理員。</view>
+        <view class="btn-group">
+          <button class="btn btn-ghost btn-sm" hover-class="btn-hover" open-type="share">提醒群友填寫</button>
+        </view>
       </view>
       <view class="card" wx:for="{{survey.questions}}" wx:key="k" wx:for-item="q">
         <view class="q-head">

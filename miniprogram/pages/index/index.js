@@ -1,10 +1,22 @@
 const api = require('../../utils/api.js');
-const { API_BASE } = require('../../config.js');
+const { API_BASE, CLOUD_FUNCTION } = require('../../config.js');
+// 首頁只顯示「現在的後端是哪一條鏈路」，方便一眼確認有沒有接上
+const BACKEND_LABEL = CLOUD_FUNCTION ? ('雲開發（雲函式 ' + CLOUD_FUNCTION + '）') : API_BASE;
+
+// 開發／體驗版才顯示技術資訊（openid、後端鏈路、開發提示）；正式版對一般用戶隱藏
+function isDevMode() {
+  try {
+    return wx.getAccountInfoSync().miniProgram.envVersion !== 'release';
+  } catch (e) {
+    return true;
+  }
+}
 
 Page({
   data: {
     openid: '',
-    apiBase: API_BASE,
+    apiBase: BACKEND_LABEL,
+    devMode: isDevMode(),
     loginErr: '',
     steps: [
       { t: '建立問卷', d: '管理員輸入群名、貼上公告，確認 5W 題目' },
@@ -15,7 +27,7 @@ Page({
   },
 
   onShow() {
-    this.setData({ apiBase: API_BASE });
+    this.setData({ apiBase: BACKEND_LABEL });
     api.ensureLogin()
       .then(() => this.setData({ openid: api.getOpenid(), loginErr: '' }))
       .catch((e) => this.setData({ openid: '', loginErr: e.message }));

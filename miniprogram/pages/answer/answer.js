@@ -1,5 +1,15 @@
 const api = require('../../utils/api.js');
 
+// 後端時間是 UTC ISO；固定顯示為 +8 時區牆上時間（與裝置時區無關）
+function fmtTime(iso) {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return '';
+  const d = new Date(t + 8 * 3600 * 1000);
+  const p = (n) => (n < 10 ? '0' + n : '' + n);
+  return (d.getUTCMonth() + 1) + '-' + d.getUTCDate() + ' ' + d.getUTCHours() + ':' + p(d.getUTCMinutes());
+}
+
 Page({
   data: {
     sid: 0,
@@ -7,11 +17,13 @@ Page({
     loading: true,
     error: '',
     openGId: '',
+    groupNote: '',
     groupWarning: '',
     answers: {},
     submitting: false,
     answered: 0,
     total: 0,
+    submitTimeText: '',
   },
 
   syncProgress() {
@@ -33,6 +45,32 @@ Page({
     wx.showShareMenu({ withShareTicket: true, menus: ['shareAppMessage'] });
   },
 
+  // shareTicket → openGId：session_key 失靈時重新登入並重新取一次分享資訊
+  async resolveGroup(sid) {
+    const shareTicket = getApp().globalData.shareTicket;
+    let attempts = 0;
+    let lastError = '';
+    while (attempts < 2) {
+      attempts += 1;
+      const payload = await api.getSharePayload(shareTicket);
+      if (!api.hasSharePayload(payload)) {
+        return { payload, openGId: '', note: '', warning: '' };
+      }
+      try {
+        const r = await api.post(`/surveys/${sid}/shareresolve`, payload);
+        const note = r.dev
+          ? '開發模式：使用設定的測試群 ID（非真實群）'
+          : `${r.justAdded ? '已識別本群並加入問卷' : '本群已在問卷的群清單中'}｜目前共 ${r.groupCount} 個群`;
+        return { payload, openGId: r.openGId, note, warning: '' };
+      } catch (e) {
+        lastError = e.message;
+        if (api.isSessionExpired(lastError)) { api.resetLogin(); continue; }
+        break;
+      }
+    }
+    return { payload: this.sharePayload || {}, openGId: '', note: '', warning: lastError };
+  },
+
   async load() {
     const { sid } = this.data;
     if (!sid) {
@@ -40,34 +78,29 @@ Page({
       return;
     }
     try {
-      // 1) 解析群分享資訊（shareTicket → encryptedData/iv；dev 模式用 devOpenGId）
-      const app = getApp();
-      const payload = await api.getSharePayload(app.globalData.shareTicket);
-      this.sharePayload = payload;
-      let openGId = '';
-      let groupWarning = '';
-      if (payload.encryptedData || payload.devOpenGId) {
-        try {
-          const r = await api.post(`/surveys/${sid}/shareresolve`, payload);
-          openGId = r.openGId;
-          if (!r.matches) groupWarning = '此問卷已綁定其他群組，提交將被拒絕';
-        } catch (e) {
-          groupWarning = e.message;
-        }
-      }
+      const group = await this.resolveGroup(sid);
+      this.sharePayload = group.payload;
 
-      // 2) 問卷內容
+      // 問卷內容
       const survey = await api.get(`/surveys/${sid}`);
       const answers = {};
       if (survey.myAnswers) {
         survey.myAnswers.forEach((a) => { answers[a.k] = a.value; });
       }
-      this.setData({ survey, answers, openGId, groupWarning, error: '' });
+      this.setData({
+        survey,
+        answers,
+        openGId: group.openGId,
+        groupNote: group.note,
+        groupWarning: group.warning,
+        submitTimeText: survey.submitTime ? fmtTime(survey.submitTime) : '',
+        error: '',
+      });
       this.syncProgress();
 
-      // 3) 記一次開啟（沒提交也算，用於提交率）
+      // 記一次開啟（沒提交也算，用於提交率）
       if (!survey.myAnswers) {
-        api.post(`/surveys/${sid}/visit`, payload).catch(() => {});
+        api.post(`/surveys/${sid}/visit`, this.sharePayload).catch(() => {});
       }
     } catch (e) {
       this.setData({ error: e.message });
@@ -99,7 +132,7 @@ Page({
     const title = s.groupName
       ? `【${s.groupName}】${s.title}：請查收並確認`
       : `【公告問卷】${s.title || '群公告確認'}：請查收並確認`;
-    return { title, path: `/pages/answer/answer?sid=${this.data.sid}`, imageUrl: '/images/survey-cover.jpg' };
+    return { title, path: `/pages/answer/answer?sid=${this.data.sid}`, imageUrl: '/images/survey-cover.png' };
   },
 
   async submit() {
@@ -110,13 +143,19 @@ Page({
         return wx.showToast({ title: `第 ${i + 1} 題是必填`, icon: 'none' });
       }
     }
-    const payload = {
-      ...(this.sharePayload || {}),
-      answers: survey.questions.map((q) => ({ k: q.k, value: (answers[q.k] || '').trim() })),
-    };
+    const answerList = survey.questions.map((q) => ({ k: q.k, value: (answers[q.k] || '').trim() }));
     this.setData({ submitting: true });
     try {
-      await api.post(`/surveys/${sid}/answer`, payload);
+      // 提交前重新取一次分享資訊：確保 encryptedData 對應後端手上的 session_key
+      let payload = await api.getSharePayload(getApp().globalData.shareTicket);
+      try {
+        await api.post(`/surveys/${sid}/answer`, { ...payload, answers: answerList });
+      } catch (e) {
+        if (!api.isSessionExpired(e.message)) throw e;
+        api.resetLogin();
+        payload = await api.getSharePayload(getApp().globalData.shareTicket);
+        await api.post(`/surveys/${sid}/answer`, { ...payload, answers: answerList });
+      }
       wx.showToast({ title: '提交成功', icon: 'success' });
       setTimeout(() => this.load(), 600);
     } catch (e) {

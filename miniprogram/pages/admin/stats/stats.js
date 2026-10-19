@@ -1,5 +1,4 @@
 const api = require('../../../utils/api.js');
-const { API_BASE } = require('../../../config.js');
 
 Page({
   data: { id: 0, stats: null, loading: true, error: '', rate: '', exporting: false, maxGroupAnswerCount: 1 },
@@ -40,57 +39,49 @@ Page({
   exportCsv() {
     if (this.data.exporting) return;
     this.setData({ exporting: true });
-    wx.request({
-      url: `${API_BASE}/surveys/${this.data.id}/export.csv`,
-      header: { Authorization: 'Bearer ' + api.getToken() },
-      success: (resp) => {
-        if (resp.statusCode === 200 && typeof resp.data === 'string') {
-          wx.setClipboardData({
-            data: resp.data.replace(/^\uFEFF/, ''),
-            success: () => wx.showModal({
-              title: '已複製 CSV',
-              content: '內容已複製到剪貼簿，貼到 Excel 或記事本再另存為 .csv 即可。',
-              showCancel: false,
-            }),
-          });
-        } else {
-          wx.showToast({ title: '匯出失敗', icon: 'none' });
-        }
-      },
-      fail: () => wx.showToast({ title: '網路錯誤', icon: 'none' }),
-      complete: () => this.setData({ exporting: false }),
-    });
+    api.getText(`/surveys/${this.data.id}/export.csv`)
+      .then((text) => {
+        wx.setClipboardData({
+          data: String(text).replace(/^\uFEFF/, ''),
+          success: () => wx.showModal({
+            title: '已複製 CSV',
+            content: '內容已複製到剪貼簿，貼到 Excel 或記事本再另存為 .csv 即可。',
+            showCancel: false,
+          }),
+        });
+      })
+      .catch(() => wx.showToast({ title: '匯出失敗', icon: 'none' }))
+      .then(() => this.setData({ exporting: false }));
   },
 
   exportXlsx() {
     if (this.data.exporting) return;
     this.setData({ exporting: true });
     wx.showLoading({ title: '產生 Excel…' });
-    wx.downloadFile({
-      url: `${API_BASE}/surveys/${this.data.id}/export.xlsx`,
-      header: { Authorization: 'Bearer ' + api.getToken() },
-      success: (resp) => {
-        if (resp.statusCode !== 200) {
-          wx.showModal({ title: '匯出失敗', content: 'HTTP ' + resp.statusCode, showCancel: false });
-          return;
-        }
+    // 走 API 拿 base64 再自己寫檔：這條路不必配置 downloadFile 合法域名，
+    // 雲托管 callContainer 鏈路也通（回包上限 1000KiB，後端超過 640KiB 會要你改用 CSV）。
+    api.get(`/surveys/${this.data.id}/export.xlsx?format=base64`)
+      .then((res) => new Promise((resolve, reject) => {
+        if (!res || !res.base64) return reject(new Error('後端沒回檔案內容'));
+        const filePath = `${wx.env.USER_DATA_PATH}/${res.filename || ('survey-' + this.data.id + '.xlsx')}`;
+        wx.getFileSystemManager().writeFile({
+          filePath,
+          data: res.base64,
+          encoding: 'base64',
+          success: () => resolve(filePath),
+          fail: (e) => reject(new Error(e.errMsg || '寫入檔案失敗')),
+        });
+      }))
+      .then((filePath) => new Promise((resolve, reject) => {
         wx.openDocument({
-          filePath: resp.tempFilePath,
+          filePath,
           fileType: 'xlsx',
           showMenu: true,
-          fail: () => wx.showModal({
-            title: '已下載但無法開啟',
-            content: '模擬器常無法開啟 Excel，請改用「匯出 CSV」貼到記事本另存；真機或正式域名下這顆鈕可直接開啟／轉發。',
-            showCancel: false,
-          }),
+          success: resolve,
+          fail: () => reject(new Error('已下載但無法開啟：模擬器常打不開 Excel，請改用「匯出 CSV」。')),
         });
-      },
-      fail: (e) => wx.showModal({
-        title: '下載失敗',
-        content: (e.errMsg || '') + '\n模擬器請改用「匯出 CSV」；真機需要在後台配置 downloadFile 域名。',
-        showCancel: false,
-      }),
-      complete: () => { wx.hideLoading(); this.setData({ exporting: false }); },
-    });
+      }))
+      .catch((e) => wx.showModal({ title: '匯出失敗', content: e.message || '未知錯誤', showCancel: false }))
+      .then(() => { wx.hideLoading(); this.setData({ exporting: false }); });
   },
 });

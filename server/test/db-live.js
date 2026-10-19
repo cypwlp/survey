@@ -121,6 +121,12 @@ const xlsx = await fetch(base + `/surveys/${sid}/export.xlsx`, { headers: { Auth
 const xbuf = Buffer.from(await xlsx.arrayBuffer());
 ok('XLSX 可產生（PK 檔頭）', xbuf[0] === 0x50 && xbuf[1] === 0x4b, `size=${xbuf.length}`);
 
+console.log('== 4. 調整題目順序（經檢視 Update）==');
+const liveRo = await call('POST', `/surveys/${sid}/reorder`, { token: admin.token, body: { order: ['when', 'what', 'why'] } });
+ok('調順序成功且新順序生效', liveRo.status === 200 && liveRo.json.questions.map((q) => q.k).join(',') === 'when,what,why', JSON.stringify(liveRo.json).slice(0, 120));
+const liveStats = (await call('GET', `/surveys/${sid}/stats`, { token: admin.token })).json;
+ok('重排後統計仍按 k 對到答案（why 2 份）', liveStats.questions.map((q) => q.k).join(',') === 'when,what,why' && liveStats.questions.find((q) => q.k === 'why').answerCount === 2, JSON.stringify(liveStats.questions.map((q) => `${q.k}:${q.answerCount}`)));
+
 console.log('== 5. 清理（經檢視掃掉所有 dev- 前綴測試資料，含歷次失敗殘留）==');
 // 注意：一律走檢視名稱，不碰 T_ 表——view-only 權限模型下本來也不該碰得到
 const sweep = `Delete From dbo.Answer Where OpenId Like 'dev-%' Or OpenId Like 'demo-%';
@@ -138,10 +144,15 @@ try {
 }
 ok('經檢視刪除測試列（含先前殘留）', del.affected >= 3, `實際刪除=${del.affected}`);
 ok('問卷已查不到', (await db.getSurvey(sid)) === null);
-const left = (await db.raw(`Select (Select Count(*) From dbo.Survey) As s,
+// 只認測試前綴：庫裡可能同時有真實問卷，不能要求整庫歸零（也不要動別人的資料）
+const left = (await db.raw(`Select
+  (Select Count(*) From dbo.Survey Where CreatorOpenId Like 'dev-%') As s,
+  (Select Count(*) From dbo.Answer Where OpenId Like 'dev-%') As a,
+  (Select Count(*) From dbo.Visit Where OpenId Like 'dev-%') As v;`)).rows[0];
+ok('dev- 測試資料零殘留', left.s === 0 && left.a === 0 && left.v === 0, JSON.stringify(left));
+const total = (await db.raw(`Select (Select Count(*) From dbo.Survey) As s,
   (Select Count(*) From dbo.Answer) As a, (Select Count(*) From dbo.Visit) As v;`)).rows[0];
-ok('三個檢視全部歸零（零殘留）', left.s === 0 && left.a === 0 && left.v === 0, JSON.stringify(left));
-console.log(`     庫內最終量（經檢視）：Survey=${left.s} Answer=${left.a} Visit=${left.v}`);
+console.log(`     庫內最終量（經檢視）：Survey=${total.s} Answer=${total.a} Visit=${total.v}`);
 
 server.close();
 console.log(`\n真實資料庫對账通過：${n} 項`);

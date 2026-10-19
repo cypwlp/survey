@@ -22,3 +22,7 @@ Thumbs.db
 .DS_Store
 .vscode/
 .idea/
+
+# 雲開發：搬遷用的資料快照（含真實問卷資料，匯入完可刪）
+cloudfunctions/osurvey/seed.json
+project.private.config.json

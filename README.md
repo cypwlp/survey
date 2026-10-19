@@ -6,13 +6,13 @@
 Survey-System/
 ├─ miniprogram/          微信小程序（原生框架，含管理端＋成員端）
 │  ├─ config.js          ← 後端位址、DEV_OPEN_GID 演練開關
-│  ├─ images/            分享封面圖（survey-cover.jpg，5:4、<128KB）
+│  ├─ images/            分享封面圖（survey-cover.png，5:4、<128KB）
 │  ├─ utils/api.js       登入、請求封裝（自動重登、shareTicket 解析、登入失敗原因）
 │  └─ pages/
 │     ├─ index/          首頁
-│     ├─ admin/create/   建立問卷（預設 5W 題目、填充／單選／日期三種題型）
+│     ├─ admin/create/   建立問卷（預設 5W 題目、三種題型、▲▼ 調順序）
 │     ├─ admin/list/     我的問卷
-│     ├─ admin/survey/   問卷詳情：分享、結束、解除群綁定
+│     ├─ admin/survey/   問卷詳情：分享、調整題目順序、結束、解除群綁定
 │     ├─ admin/stats/    統計：提交率、選項百分比、高頻詞雲、文字回覆、匯出 Excel／CSV
 │     └─ answer/         成員端作答頁（含 <open-data> 顯示群名）
 ├─ server/               Node.js API（Express 5 + mssql + exceljs）
@@ -20,7 +20,13 @@ Survey-System/
 │  ├─ src/routes/        auth / surveys / answers / stats
 │  ├─ src/db.js          mssql 與 memory 雙驅動
 │  ├─ .env               ← 真實憑證（已在 .gitignore）；.env.example 為範本
-│  └─ test/smoke.js      端到端煙霧測試（46 項斷言，npm run smoke）
+│  └─ test/smoke.js      端到端煙霧測試（53 項斷言，npm run smoke）
+├─ cloudfunctions/osurvey/  微信雲開發雲函式（同一套 REST 路由搬上雲；單函式＋路徑路由）
+│  ├─ router.js          路由（與 server/src/routes 同語意、同回應格式）
+│  ├─ db.js              雲開發資料庫驅動（用固定 _id 取代唯一索引）
+│  ├─ lib/               questions／stats／memory-db（本機自測用）
+│  └─ test/local-smoke.js  61 項全鏈路自測（免雲環境、免開發者工具）
+├─ project.config.json   開發者工具專案根（miniprogramRoot + cloudfunctionRoot）
 └─ database/
    ├─ 01_schema.sql            T_表＋同名檢視（全新庫），單段 F5＋@DryRun 閘門
    ├─ 02_t_plus_view.sql       從舊版（表名無 T_ 前綴）遷移，不刪資料
@@ -74,13 +80,30 @@ Survey-System/
 4. 體驗版驗證群鏈路：管理員分享卡片到群 → **從群裡點卡片進入一次**（這一步才會綁定群並讓 `<open-data>` 顯示群名）→ 成員作答
 
 ## 群綁定機制（多群）
+### D. 微信雲開發（雲函式＋雲資料庫；固定月費，目前主線）
+
+後端整包搬到微信自家雲上：**不必備案域名、不必對外開 443、不必動防火牆與端口映射**，
+小程式用 `wx.cloud.callFunction` 走微信內網。費用：未上線免費體驗；上線後 19.9 元/月（原價 39，五折長期有效）。
+
+1. 開發者工具**用倉庫根目錄** `D:\WORK\Survey-System` 當專案（雲函式在 `cloudfunctions/`，開 `miniprogram` 子目錄看不到）
+2. 工具列「雲開發」→ 開通 → 建環境（選免費體驗）
+3. `miniprogram/config.js` 填 `CLOUD_FUNCTION: 'osurvey'`（多環境時再填 `CLOUD_ENV`）
+4. 左側 `cloudfunctions/osurvey` 右鍵 →「上傳並部署：雲端安裝依賴（不上傳 node_modules）」
+5. 雲開發控制台把雲函式**逾時時間改成 20 秒**（預設 3 秒不夠冷啟動與匯出 Excel）
+6. 搬舊資料：`cd server && node test/export-seed.js` → 重新上傳 → 控制台雲端測試 `{"method":"POST","path":"/admin/importSeed"}`
+
+完整步驟、驗證清單、報錯對照：**`deploy/CLOUDDEV.md`**
+自測：`node tools/check-cloud.js`、`cd cloudfunctions/osurvey && npm test`
+群 `openGId` 在雲開發走 CloudID（微信在雲函式入口直接解好），不再需要自架版的 session_key AES 解密。
+
+## 群綁定機制（多群）
 
 - 分享時開啟 `withShareTicket`（`menus: ['shareAppMessage']`）；成員從**群卡片**進入時拿到 `shareTicket`
 - 前端 `wx.getShareInfo` 取 `encryptedData/iv` → 後端用該用戶 `session_key` AES-128-CBC 解密出 `openGId`
 - **多群模型**：一份問卷可歸屬多個群。第一個從某群進入的人就把該群加入（`T_SurveyGroup`，唯一鍵 `SurveyId+OpenGId`），同一張卡片轉發到別的群，那個群也會自動加入
 - `BindMode='group'` 只收「從群卡片進入」的人（沒帶群憑證回 422）；`BindMode='open'` 不限制
 - 統計頁有「**各群提交數**」分組；管理頁可看「已加入的群」清單與時間，可「解除全部群綁定」重來
-- 分享標題依設計規格：`【群名稱】問卷標題：請查收並確認`，封面為 `images/survey-cover.jpg`
+- 分享標題依設計規格：`【群名稱】問卷標題：請查收並確認`，封面為 `images/survey-cover.png`
 
 ## API 一覽
 
@@ -94,6 +117,7 @@ Survey-System/
 | POST | /api/surveys/:id/answer | 提交（去重 409、群不符 403、日期格式 400） |
 | POST | /api/surveys/:id/close | 結束／重開 |
 | POST | /api/surveys/:id/unbind | 解除群綁定 |
+| POST | /api/surveys/:id/reorder | 調整題目順序（答案以 k 對應，已回收的答卷不受影響） |
 | GET | /api/surveys/:id/stats | 統計（選項count＋百分比、高頻詞、文字回覆） |
 | GET | /api/surveys/:id/export.csv | 匯出 CSV（UTF-8 BOM、時間已轉 +8） |
 | GET | /api/surveys/:id/export.xlsx | 匯出 Excel（答卷明細＋統計摘要兩個工作表） |
@@ -110,6 +134,7 @@ Survey-System/
 ## 上線前代辦
 
 1. 域名＋HTTPS：開發／體驗版不需要；正式版 request 域名必須 HTTPS。伺服器在大陸要備案（2–3 週），在境外可用未備案域名（慢一點）
+   （**走雲開發這條路時本條不適用**：雲函式呼叫不需要域名、不需要備案，見 `deploy/CLOUDDEV.md`）
 2. 提審定位寫「信息收集工具」，避免被判互動類
 3. `server/.env` 的 `TOKEN_SECRET`、DB 密碼不要外流；`.env` 不進版控
 
@@ -117,15 +142,16 @@ Survey-System/
 
 | 項目 | 狀態 |
 |---|---|
-| 後端邏輯 | `cd server && npm run smoke` — **46 項斷言全過**（權限、去重、群邊界、**多群加入與分群統計**、日期題型、統計百分比、高頻詞、CSV／XLSX、結束／重開、解除綁定） |
+| 後端邏輯 | `cd server && npm run smoke` — **53 項斷言全過**（權限、去重、群邊界、**多群加入與分群統計**、日期題型、統計百分比、高頻詞、CSV／XLSX、結束／重開、解除綁定、**題目重排**） |
 | SQL 腳本 | `01_schema.sql`（v2）與 `02_t_plus_view.sql` 均在本機 LocalDB 實測：跑錯庫被擋／演練零寫入（事後查 `sys.tables=3 views=0`）／落地 `TranCount=0` 與 12 列／重跑被閘門擋下 |
 | **檢視可寫性** | 經檢視跑過 app 的實際語法：`Insert … Output Inserted.SurveyId` 取回 Identity、`Update … Where OpenGId Is Null`、重複提交被唯一索引擋下（**2601**）、防重訪連跑兩次只 1 列、`T_` 表與檢視讀數一致、測資已清（殘留 0/0/0） |
 | 真實 SQL Server | 已連線 `10.241.48.1/OSurveyDB`（Microsoft SQL Server 2016）；環境變數注入優先於 `.env` 已實測 |
-| **落庫對账（真庫）** | `cd server && node test/db-live.js` — **26 項全過**：一份問卷同時歸屬 A/B 兩群、兩群各交一份、分群統計正確、唯一索引擋重複 409、中文與三種題型原樣、語義化 key、日期值、CSV(+8)、XLSX、**直接查實體表被擋**、清理後三檢視歸零 |
+| **落庫對账（真庫）** | `cd server && node test/db-live.js` — **28 項全過**：一份問卷同時歸屬 A/B 兩群、兩群各交一份、分群統計正確、唯一索引擋重複 409、中文與三種題型原樣、語義化 key、日期值、CSV(+8)、XLSX、**直接查實體表被擋**、**題目重排（經檢視 Update）後統計仍對得上答案**、清理後 `dev-` 測試資料零殘留（不碰庫裡的真實問卷） |
 | view-only 權限模型 | `03_public_view_only.sql` 已在真庫落地：`public` 庫層級由 7 種收為只剩 `CONNECT`，四個檢視（含 SurveyGroup）各帶 4 種 GRANT，四張 `T_` 表無任何授與 |
 | API 送的 SQL | 11 組語句逐條在 LocalDB 跑過（含重複鍵預期 2601、防重訪只 1 列） |
 | 微信憑證 | 實測有效：`/cgi-bin/token` 取得 access_token；假 code 打 `/api/auth/login` 得微信 `40029`（＝AppID/Secret 被接受、出口 IP 沒被白名單擋） |
 | **登入鏈路（真機代碼）** | **已實測打通**：開發者工具編譯後首頁顯示真實 openid，後端 `POST /api/auth/login → 200`（220–690ms 為真打 `api.weixin.qq.com` 的延遲） |
+| **雲開發雲函式** | `node tools/check-cloud.js` — 靜態檢查（CommonJS、依賴、雲函式目錄、專案根設定）＋ **61 項全鏈路自測**（建問卷／群名／CloudID 解 openGId／多群／作答去重／題目重排與改題／刪除問卷級聯／統計／CSV 打碼／XLSX／資料清理／資料匯入幂等）。**真雲環境待開通後實測**（見 `deploy/CLOUDDEV.md` 第 7 節） |
 | 小程序靜態 | 全 JS `node --check` 通過、JSON 全可解析；6 支頁面 WXML↔JS 交叉檢查（事件常式、模板欄位、標籤閉合、無 wxs） |
 | 小程序執行面 | **部分驗證**：首頁渲染與登入已實測；建立／作答／統計／匯出四頁與 `<open-data>` 群名**仍待你在模擬器走一遍**；`shareTicket → openGId` 真解密只能真機進群驗證 |
 

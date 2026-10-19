@@ -16,6 +16,7 @@ Page({
     groupNames: [],
     groupInput: '',
     savedGroups: [],
+    savedList: [],
     announcement: '',
     bindMode: 'group',
     questions: [],
@@ -24,15 +25,28 @@ Page({
   },
 
   onLoad() {
-    const saved = wx.getStorageSync('groupHistory') || [];
+    this.seq = 0;
     this.setData({
       questions: DEFAULT_QUESTIONS.map((q) => ({
         ...q,
+        uid: 'd' + (++this.seq),
         optionsText: q.optionsText || '',
         typeIndex: TYPE_KEYS.indexOf(q.type),
       })),
-      savedGroups: saved,
     });
+    this.loadGroupHistory();
+  },
+
+  // 群名歷史以資料庫為準；本機 storage 只當離線快取
+  async loadGroupHistory() {
+    const local = wx.getStorageSync('groupHistory') || [];
+    if (local.length) { this.setData({ savedGroups: local }); this.syncSaved(); }
+    try {
+      let r = await api.get('/groupnames');
+      if (local.length && !r.names.length) r = await api.post('/groupnames', { names: local });
+      this.setData({ savedGroups: r.names });
+      this.syncSaved();
+    } catch (e) { /* 連不到就用本機清單，不擋建立流程 */ }
   },
 
   onTitle(e) { this.setData({ title: e.detail.value }); },
@@ -40,27 +54,42 @@ Page({
   onAnnouncement(e) { this.setData({ announcement: e.detail.value }); },
   setBindMode(e) { this.setData({ bindMode: e.currentTarget.dataset.mode }); },
 
+  // 「以前輸入過的群名」清單要帶著已選狀態，才能常駐多選
+  syncSaved() {
+    const picked = this.data.groupNames;
+    this.setData({ savedList: this.data.savedGroups.map((name) => ({ name, on: picked.includes(name) })) });
+  },
+
   addGroupName() {
     const name = (this.data.groupInput || '').trim();
     if (!name) return wx.showToast({ title: '先輸入群名', icon: 'none' });
     if (this.data.groupNames.includes(name)) return wx.showToast({ title: '這個群名已經加了', icon: 'none' });
     const groupNames = this.data.groupNames.concat([name]);
-    // 記住歷史群名（本機 storage，下次可直接選）
+    // 記在這台手機上（離線快取）
     const savedGroups = [name, ...this.data.savedGroups.filter((g) => g !== name)].slice(0, 20);
     wx.setStorageSync('groupHistory', savedGroups);
     this.setData({ groupNames, savedGroups, groupInput: '' });
+    this.syncSaved();
+    // 同步進資料庫，換手機／換人登才找得回來；失敗不擋流程
+    api.post('/groupnames', { names: [name] })
+      .then((r) => { this.setData({ savedGroups: r.names }); this.syncSaved(); })
+      .catch(() => {});
   },
 
   removeGroupName(e) {
     const name = e.currentTarget.dataset.name;
     this.setData({ groupNames: this.data.groupNames.filter((g) => g !== name) });
+    this.syncSaved();
   },
 
-  pickSaved(e) {
+  toggleSaved(e) {
     const name = e.currentTarget.dataset.name;
-    if (!this.data.groupNames.includes(name)) {
-      this.setData({ groupNames: this.data.groupNames.concat([name]) });
-    }
+    const groupNames = this.data.groupNames.slice();
+    const i = groupNames.indexOf(name);
+    if (i >= 0) groupNames.splice(i, 1);
+    else groupNames.push(name);
+    this.setData({ groupNames });
+    this.syncSaved();
   },
 
   pasteAnnouncement() {
@@ -75,7 +104,7 @@ Page({
   },
 
   addQuestion() {
-    const questions = this.data.questions.concat([{ type: 'text', typeIndex: 0, title: '', required: true, optionsText: '' }]);
+    const questions = this.data.questions.concat([{ uid: 'n' + (++this.seq), type: 'text', typeIndex: 0, title: '', required: true, optionsText: '' }]);
     this.setData({ questions });
   },
 
@@ -83,6 +112,15 @@ Page({
     const i = e.currentTarget.dataset.index;
     const questions = this.data.questions.slice();
     questions.splice(i, 1);
+    this.setData({ questions });
+  },
+
+  moveQuestion(e) {
+    const i = Number(e.currentTarget.dataset.index);
+    const j = i + Number(e.currentTarget.dataset.dir);
+    const questions = this.data.questions.slice();
+    if (j < 0 || j >= questions.length) return;
+    const t = questions[i]; questions[i] = questions[j]; questions[j] = t;
     this.setData({ questions });
   },
 

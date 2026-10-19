@@ -42,7 +42,6 @@
 .grow-label { font-size: 27rpx; font-weight: 600; color: #334155; }
 
 .grow-top .faint { word-break: break-all; margin-left: 16rpx; }
-
 .grow-n {
   font-size: 22rpx;
   color: var(--muted);
@@ -58,7 +57,6 @@
 }
 
 .dist-label { font-size: 26rpx; color: #334155; flex: 1; margin-right: 16rpx; }
-
 .dist-pct { font-size: 23rpx; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 .dist-track {
