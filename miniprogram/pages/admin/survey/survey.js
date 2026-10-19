@@ -94,9 +94,13 @@ Page({
   buildQuestions() {
     const used = {};
     return this.data.draft.map((q, i) => {
-      // 舊題保留原 key（答案以 k 對應）；新題用 qN，撞號就換
-      let k = String(q.k || '').trim().replace(/[^\w-]/g, '').slice(0, 32) || `q${i + 1}`;
-      if (used[k]) k = `q${i + 1}`;
+      // 舊題保留原 key（答案以 k 對應）；新題自動給 qN，撞號就往後找一個沒用過的
+      let k = String(q.k || '').trim().replace(/[^\w-]/g, '').slice(0, 32);
+      if (!k || used[k]) {
+        let n = i + 1;
+        while (used[`q${n}`]) n += 1;
+        k = `q${n}`;
+      }
       used[k] = true;
       const item = { k, type: q.type, title: (q.title || '').trim(), required: !!q.required };
       if (q.type === 'choice') {

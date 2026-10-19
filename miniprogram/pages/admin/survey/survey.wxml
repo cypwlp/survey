@@ -70,7 +70,7 @@
         <view class="sec-title" style="margin-bottom:0">題目（{{survey.questions.length}}）</view>
       <view class="edit-btn" wx:if="{{survey.isCreator && !editMode}}" hover-class="opt-hover" bindtap="toggleEdit">編輯題目</view>
       </view>
-    <view class="hint" wx:if="{{editMode}}">可改題干、類型、選項與必填，也能加題／刪題／調順序。答案以題目編號對應：已提交的答卷不受影響，刪掉的題目不再統計。</view>
+    <view class="hint" wx:if="{{editMode}}">可改題干、類型、選項與必填，也能加題／刪題／調順序。答案以題目編號（key）對應：已提交的答卷不受影響，刪掉的題目不再統計。新加的題不用手動填 key，保存時自動分配。</view>
 
     <block wx:if="{{!editMode}}">
         <view class="q-line" wx:for="{{survey.questions}}" wx:key="k">
@@ -113,6 +113,7 @@
               <text class="muted">必填</text>
             </view>
             <view class="faint" wx:if="{{item.k}}">key：{{item.k}}</view>
+            <view class="faint" wx:else>key：保存時自動分配</view>
           </view>
         </view>
 
