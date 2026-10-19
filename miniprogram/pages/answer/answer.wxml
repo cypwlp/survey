@@ -26,7 +26,7 @@
     <view class="notice notice-ok" wx:if="{{groupNote}}">{{groupNote}}</view>
     <view class="notice" wx:elif="{{groupWarning}}">{{groupWarning}}</view>
     <view class="notice" wx:elif="{{survey.bindMode === 'group' && !openGId && !survey.myAnswers}}">
-      請從微信群的問卷卡片進入作答，否則系統無法識別群組、提交會被擋下。
+      請從微信群的問卷卡片進入作答，否則系統無法識別群組、提交會被擋下。（若這份問卷是用二維碼分發的，請建立者把作答範圍改成「開放作答」）
     </view>
 
     <view class="card card--tint" wx:if="{{survey.announcement}}">

@@ -12,7 +12,7 @@ Survey-System/
 │     ├─ index/          首頁
 │     ├─ admin/create/   建立問卷（預設 5W 題目、三種題型、▲▼ 調順序）
 │     ├─ admin/list/     我的問卷
-│     ├─ admin/survey/   問卷詳情：分享、調整題目順序、結束、解除群綁定
+│     ├─ admin/survey/   問卷詳情：分享、小程序碼（掃碼分發）、調整題目、切換作答範圍、結束、解除群綁定
 │     ├─ admin/stats/    統計：提交率、選項百分比、高頻詞雲、文字回覆、匯出 Excel／CSV
 │     └─ answer/         成員端作答頁（含 <open-data> 顯示群名）
 ├─ server/               Node.js API（Express 5 + mssql + exceljs）
@@ -25,7 +25,7 @@ Survey-System/
 │  ├─ router.js          路由（與 server/src/routes 同語意、同回應格式）
 │  ├─ db.js              雲開發資料庫驅動（用固定 _id 取代唯一索引）
 │  ├─ lib/               questions／stats／memory-db（本機自測用）
-│  └─ test/local-smoke.js  61 項全鏈路自測（免雲環境、免開發者工具）
+│  └─ test/local-smoke.js  71 項全鏈路自測（免雲環境、免開發者工具）
 ├─ project.config.json   開發者工具專案根（miniprogramRoot + cloudfunctionRoot）
 └─ database/
    ├─ 01_schema.sql            T_表＋同名檢視（全新庫），單段 F5＋@DryRun 閘門

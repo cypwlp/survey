@@ -17,10 +17,13 @@ function check(name, cond, extra) {
 }
 
 const db = memoryDriver();
+// 假的小程序碼生成器：真的那條走雲調用（cloud.openapi.wxacode.getUnlimited），本機測試只驗參數傳遞。
+const fakeWxacode = async ({ page, scene, envVersion }) => Buffer.from(`PNG:${page}|${scene}|${envVersion}`);
 const router = createRouter({
   db,
   resolveOpenData: async (v) => (v && v.data) || null,
   allowDevGid: true,
+  genWxacode: fakeWxacode,
   log: () => {},
 });
 
@@ -240,6 +243,33 @@ async function main() {
   check('清理後新答卷還在', r.data.answerCount === 1 && r.data.visitCount === 1, r.data.answerCount);
   r = await call(B, 'POST', '/admin/purge', { days: 365 });
   check('別人清理不到我的資料', r.statusCode === 200 && r.data.answers === 0 && r.data.visits === 0, r.data);
+
+  console.log('\n[12] 小程序碼（未認證帳號靠掃碼分發）');
+  r = await call(C, 'GET', `/surveys/${surveyId}/qrcode`, {});
+  check('非建立者生成 → 403', r.statusCode === 403, r.data);
+  r = await call(A, 'GET', `/surveys/${surveyId}/qrcode`, {});
+  const qrText = r.statusCode === 200 ? Buffer.from(r.data.base64, 'base64').toString('utf8') : '';
+  check('生成碼：頁面與 scene 正確（默認 release）', r.statusCode === 200 && qrText === `PNG:pages/answer/answer|sid=${surveyId}|release` && r.data.scene === `sid=${surveyId}`, { status: r.statusCode, qrText });
+  r = await call(A, 'GET', `/surveys/${surveyId}/qrcode`, {}, { query: { env: 'develop' } });
+  check('?env=develop → 生成開發版碼（測試用）', r.statusCode === 200 && Buffer.from(r.data.base64, 'base64').toString('utf8').endsWith('|develop'), r.data && r.data.envVersion);
+  r = await call(A, 'GET', `/surveys/${surveyId}/qrcode`, {}, { query: { env: 'weird' } });
+  check('未知 env → 回落 release', r.statusCode === 200 && r.data.envVersion === 'release', r.data && r.data.envVersion);
+
+  console.log('\n[13] 切換作答範圍（二維碼分發要用「開放作答」）');
+  r = await call(A, 'POST', '/surveys', { title: '掃碼分發測試', questions: defaultQuestions() });
+  const modeId = r.data.surveyId;
+  r = await call(B, 'POST', `/surveys/${modeId}/bindmode`, { bindMode: 'open' });
+  check('非建立者切換 → 403', r.statusCode === 403, r.data);
+  r = await call(C, 'POST', `/surveys/${modeId}/answer`, { answers });
+  check('綁定群組模式：沒帶分享資訊 → 422（掃碼進來會被擋）', r.statusCode === 422, r.data);
+  r = await call(A, 'POST', `/surveys/${modeId}/bindmode`, { bindMode: 'open' });
+  check('建立者切成「開放作答」', r.statusCode === 200 && r.data.bindMode === 'open', r.data);
+  r = await call(C, 'POST', `/surveys/${modeId}/answer`, { answers });
+  check('開放作答模式：沒帶群資訊也能提交（掃碼可用）', r.statusCode === 200, r.data);
+  r = await call(A, 'GET', `/surveys/${modeId}`, {});
+  check('詳情回報 bindMode=open', r.data.bindMode === 'open', r.data.bindMode);
+  r = await call(A, 'POST', `/surveys/${modeId}/bindmode`, { bindMode: 'group' });
+  check('切回「綁定群組」', r.statusCode === 200 && r.data.bindMode === 'group', r.data);
 
   console.log(`\n${fail ? '✗ 失敗 ' + fail + ' 項 / ' : ''}通過 ${pass} 項`);
   if (fail) process.exit(1);

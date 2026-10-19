@@ -1,5 +1,20 @@
 const api = require('../../utils/api.js');
 
+// 掃小程序碼進來時，參數包在 options.scene（如 "sid=8"，微信可能再包一層 URL 編碼），
+// 這裡統一解出來；直接帶 ?sid=8 進來的老路徑不受影響。
+function sidFromScene(scene) {
+  let v = String(scene || '');
+  for (let i = 0; i < 2 && v; i++) {
+    const m = /(?:^|[&;])sid=(\d+)/.exec(v);
+    if (m) return Number(m[1]);
+    let d;
+    try { d = decodeURIComponent(v); } catch (e) { break; }
+    if (d === v) break;
+    v = d;
+  }
+  return 0;
+}
+
 // 後端時間是 UTC ISO；固定顯示為 +8 時區牆上時間（與裝置時區無關）
 function fmtTime(iso) {
   if (!iso) return '';
@@ -37,7 +52,9 @@ Page({
   },
 
   onLoad(options) {
-    this.setData({ sid: Number(options.sid || 0) });
+    let sid = Number(options.sid || 0);
+    if (!sid && options.scene) sid = sidFromScene(options.scene);
+    this.setData({ sid });
     this.load();
   },
 

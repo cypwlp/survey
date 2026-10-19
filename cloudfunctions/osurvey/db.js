@@ -166,6 +166,11 @@ function cloudDriver(cloud, { log = () => {} } = {}) {
       return n > 0;
     },
 
+    async setBindMode(id, bindMode) {
+      const n = await patch('survey', { SurveyId: Number(id) }, { BindMode: bindMode === 'open' ? 'open' : 'group', UpdateTime: nowIso() });
+      return n > 0;
+    },
+
     async updateSurveyQuestions(id, questionsJson) {
       const n = await patch('survey', { SurveyId: Number(id) }, { QuestionsJson: questionsJson, UpdateTime: nowIso() });
       return n > 0;

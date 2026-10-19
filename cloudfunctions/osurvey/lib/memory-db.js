@@ -110,6 +110,14 @@ function memoryDriver() {
       s.UpdateTime = now();
       return true;
     },
+
+    async setBindMode(id, bindMode) {
+      const s = surveys.get(Number(id));
+      if (!s) return false;
+      s.BindMode = bindMode === 'open' ? 'open' : 'group';
+      s.UpdateTime = now();
+      return true;
+    },
     async updateSurveyQuestions(id, questionsJson) {
       const s = surveys.get(Number(id));
       if (!s) return false;

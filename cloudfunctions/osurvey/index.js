@@ -39,10 +39,27 @@ async function resolveOpenData(value) {
   return (first && first.data) || null;
 }
 
+// 生成「掃碼進入問卷」的小程式碼：走雲調用（cloud.openapi），不需要 access_token／appsecret。
+// 未認證帳號無法「被分享」，二維碼是唯一能把問卷發給別人的方式（搭配「開放作答」模式）。
+async function genWxacode({ page, scene, envVersion }) {
+  const res = await cloud.openapi.wxacode.getUnlimited({
+    page,
+    scene,
+    width: 430,
+    checkPath: false,
+    envVersion: envVersion || 'release',
+  });
+  if (!res || !res.buffer) {
+    throw new Error('雲調用 wxacode.getUnlimited 沒回圖片：' + JSON.stringify(res || {}));
+  }
+  return res.buffer;
+}
+
 const router = createRouter({
   db,
   resolveOpenData,
   allowDevGid: ALLOW_DEV_GID,
+  genWxacode,
   log: (m) => console.log(m),
 });
 

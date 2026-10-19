@@ -23,7 +23,9 @@
       <view class="btn-group">
         <button class="btn btn-ghost btn-sm" hover-class="btn-hover" bindtap="goStats">查看統計</button>
         <button class="btn btn-quiet btn-sm" hover-class="btn-hover" bindtap="copyPath">複製進入路徑</button>
+        <button class="btn btn-quiet btn-sm" hover-class="btn-hover" bindtap="openQrcode">小程序碼</button>
       </view>
+      <view class="hint">未被搜尋／被分享的帳號（未認證）用「小程序碼」分發：長按圖片保存或轉發，朋友掃碼即進入（僅「開放作答」模式；「綁定群組」必須從群卡片進入）。</view>
     </view>
 
     <view class="grid2" wx:if="{{survey.isCreator}}">
@@ -36,6 +38,13 @@
             wx:if="{{survey.bindMode === 'group' && survey.hasGroupBound}}">
         <view class="tile-t">解除全部群綁定</view>
         <view class="faint">清掉已加入的群，重新累計</view>
+      </view>
+    </view>
+
+    <view class="grid2" wx:if="{{survey.isCreator}}">
+      <view class="tile" hover-class="item-hover" bindtap="toggleBindMode">
+        <view class="tile-t">{{survey.bindMode === 'group' ? '改為「開放作答」' : '改為「綁定群組」'}}</view>
+        <view class="faint">{{survey.bindMode === 'group' ? '掃碼／轉發都能提交，適合二維碼分發' : '恢復成必須從群卡片進入'}}</view>
       </view>
     </view>
 
@@ -122,4 +131,18 @@
       <button class="btn btn-danger btn-sm" hover-class="btn-hover" bindtap="deleteSurvey" loading="{{deleting}}" disabled="{{deleting}}">刪除這份問卷</button>
     </view>
   </block>
+</view>
+
+<view class="qr-mask" wx:if="{{qrVisible}}" bindtap="closeQrcode">
+  <view class="qr-panel" catchtap="noop">
+    <view class="qr-title">掃碼進入問卷</view>
+    <view class="qr-loading" wx:if="{{qrLoading}}">正在生成小程序碼…</view>
+    <view class="qr-err" wx:elif="{{qrError}}">{{qrError}}</view>
+    <block wx:else>
+      <image class="qr-img" src="{{qrImage}}" mode="widthFix" show-menu-by-longpress="{{true}}" />
+      <view class="qr-tip">長按圖片 → 保存到手機 或 轉發給朋友</view>
+      <view class="qr-tip qr-tip-faint">朋友掃一掃／在聊天裡長按識別，就能直接進入答題頁</view>
+    </block>
+    <button class="btn btn-quiet btn-sm" hover-class="btn-hover" bindtap="closeQrcode">關閉</button>
+  </view>
 </view>

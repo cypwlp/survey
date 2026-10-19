@@ -18,7 +18,7 @@ function httpError(status, message) {
 
 const ok = (data) => ({ statusCode: 200, data });
 
-function createRouter({ db, resolveOpenData, allowDevGid = false, log = () => {} }) {
+function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = null, log = () => {} }) {
   const shareOf = (req) => ({
     shareCloudId: req.shareCloudId,
     devOpenGId: req.data && req.data.devOpenGId,
@@ -113,6 +113,14 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, log = () => {}
     return ok({ ok: true, isClosed: closed });
   }
 
+  // 切換作答範圍：綁定群組 ⇄ 開放作答（只影響之後的提交校驗；二維碼分發必須用「開放作答」）
+  async function setBindMode(params, req) {
+    const survey = await loadOwned(Number(params[0]), req.openid);
+    const mode = (req.data && req.data.bindMode) === 'open' ? 'open' : 'group';
+    await db.setBindMode(survey.SurveyId, mode);
+    return ok({ ok: true, bindMode: mode });
+  }
+
   async function unbindGroups(params, req) {
     const survey = await loadOwned(Number(params[0]), req.openid);
     await db.clearSurveyGroup(survey.SurveyId);
@@ -148,6 +156,28 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, log = () => {}
     const survey = await loadOwned(Number(params[0]), req.openid);
     const removed = await db.deleteSurveyCascade(survey.SurveyId);
     return ok({ ok: true, removed });
+  }
+
+  // 掃碼進入問卷：生成這份問卷的小程式碼（雲調用 wxacode.getUnlimited，免 access_token、免 appsecret）。
+  // 未認證帳號不能被搜尋／被分享，二維碼就是分發入口；掃碼不帶群資訊，請搭配「開放作答」模式。
+  async function surveyQrcode(params, req) {
+    const survey = await loadOwned(Number(params[0]), req.openid);
+    if (typeof genWxacode !== 'function') {
+      throw httpError(500, '這個雲函式版本還不支援生成小程序碼，請先重新部署 cloudfunctions/osurvey');
+    }
+    const envRaw = String((req.query && req.query.env) || 'release');
+    const envVersion = envRaw === 'develop' || envRaw === 'trial' ? envRaw : 'release';
+    const scene = `sid=${survey.SurveyId}`;
+    const buffer = await genWxacode({ page: 'pages/answer/answer', scene, envVersion });
+    if (!buffer || !buffer.length) throw httpError(502, '生成小程序碼失敗：沒有拿到圖片');
+    return ok({
+      surveyId: survey.SurveyId,
+      page: 'pages/answer/answer',
+      scene,
+      envVersion,
+      bytes: buffer.length,
+      base64: Buffer.from(buffer).toString('base64'),
+    });
   }
 
   // 清理超過保留期限的答卷與開啟記錄（隱私指引：365 天）
@@ -290,10 +320,12 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, log = () => {}
     ['POST', /^\/groupnames$/, saveGroupNames],
     ['GET', /^\/surveys\/(\d+)$/, getSurvey],
     ['POST', /^\/surveys\/(\d+)\/close$/, closeSurvey],
+    ['POST', /^\/surveys\/(\d+)\/bindmode$/, setBindMode],
     ['POST', /^\/surveys\/(\d+)\/unbind$/, unbindGroups],
     ['POST', /^\/surveys\/(\d+)\/reorder$/, reorderQuestions],
     ['POST', /^\/surveys\/(\d+)\/questions$/, updateQuestions],
     ['POST', /^\/surveys\/(\d+)\/delete$/, deleteSurvey],
+    ['GET', /^\/surveys\/(\d+)\/qrcode$/, surveyQrcode],
     ['POST', /^\/surveys\/(\d+)\/shareresolve$/, shareResolve],
     ['POST', /^\/surveys\/(\d+)\/visit$/, visit],
     ['POST', /^\/surveys\/(\d+)\/answer$/, submitAnswer],

@@ -3,7 +3,7 @@ const api = require('../../../utils/api.js');
 const TYPE_KEYS = ['text', 'choice', 'date'];
 
 Page({
-  data: { id: 0, survey: null, loading: true, error: '', editMode: false, draft: [], typeLabels: ['填充題', '單選題', '日期選擇'], saving: false, deleting: false },
+  data: { id: 0, survey: null, loading: true, error: '', editMode: false, draft: [], typeLabels: ['填充題', '單選題', '日期選擇'], saving: false, deleting: false, qrVisible: false, qrLoading: false, qrImage: '', qrError: '', qrScene: '' },
 
   onLoad(options) {
     this.setData({ id: Number(options.id || 0) });
@@ -161,6 +161,43 @@ Page({
       data: `/pages/answer/answer?sid=${this.data.id}`,
       success: () => wx.showToast({ title: '已複製分享路徑', icon: 'none' }),
     });
+  },
+
+  // 未認證帳號不能「被分享／被搜尋」，二維碼是唯一能把問卷發出去的方式。
+  // 圖片長按可保存／轉發，朋友掃碼或長按識別即進入答題頁。
+  openQrcode() {
+    if (this.data.qrLoading) return;
+    this.setData({ qrVisible: true, qrLoading: true, qrImage: '', qrError: '', qrScene: '' });
+    api.get(`/surveys/${this.data.id}/qrcode`)
+      .then((r) => this.setData({ qrImage: 'data:image/png;base64,' + r.base64, qrScene: r.scene, qrLoading: false }))
+      .catch((e) => this.setData({ qrError: e.message || '生成失敗', qrLoading: false }));
+  },
+
+  closeQrcode() {
+    this.setData({ qrVisible: false });
+  },
+
+  noop() {},
+
+  // 綁定群組 ⇄ 開放作答：掃碼／轉發分發要用「開放作答」，微信群卡片模式用「綁定群組」
+  async toggleBindMode() {
+    const s = this.data.survey;
+    const toOpen = s.bindMode === 'group';
+    const res = await new Promise((r) => wx.showModal({
+      title: toOpen ? '改為「開放作答」' : '改為「綁定群組」',
+      content: toOpen
+        ? '任何人拿到問卷入口（含掃小程序碼）都能提交，不再要求從群卡片進入。已回收的答卷不受影響。'
+        : '之後必須從微信群卡片進入才能提交，掃碼進來的人會被擋下。已回收的答卷不受影響。',
+      success: r,
+    }));
+    if (!res.confirm) return;
+    try {
+      await api.post(`/surveys/${this.data.id}/bindmode`, { bindMode: toOpen ? 'open' : 'group' });
+      wx.showToast({ title: toOpen ? '已改為開放作答' : '已改為綁定群組', icon: 'none' });
+      this.load();
+    } catch (e) {
+      wx.showToast({ title: e.message, icon: 'none' });
+    }
   },
 
   async toggleClose() {
