@@ -98,5 +98,18 @@ for (const wp of wxmls) {
   console.log(`  ${label}：${handlers.size} 事件、${ids.size} 模板欄位、${used.size} class 已核對`);
 }
 
+// 防回歸：首頁的技術資訊（openid／後端鏈路／開發提示）只能出現在「開發版」；
+// 體驗版、正式版一律隱藏，且取不到版本資訊時必須 fail-closed（回 false）。
+const indexJs = fs.readFileSync(path.join(ROOT, 'pages', 'index', 'index.js'), 'utf8');
+if (!/envVersion === 'develop'/.test(indexJs)) {
+  fail('首頁 index.js：isDevMode 應只認 envVersion === "develop"（體驗版／正式版都要隱藏調試資訊）');
+}
+if (/envVersion !== 'release'/.test(indexJs)) {
+  fail('首頁 index.js：又用回了 envVersion !== "release" —— 體驗版會把 openid／後端鏈路漏給用戶看');
+}
+if (!/catch\s*\(e\)\s*\{\s*return false;/.test(indexJs)) {
+  fail('首頁 index.js：isDevMode 取不到版本資訊時應回 false（fail-closed），不能默認顯示');
+}
+
 console.log(bad ? `\n發現 ${bad} 個問題` : '\n小程序靜態檢查全部通過');
 process.exit(bad ? 1 : 0);
