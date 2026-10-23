@@ -1,0 +1,28 @@
+.card--overlap { margin-top: -64rpx; }
+
+.item {
+  background: var(--card);
+  border-radius: var(--r-lg);
+  padding: 28rpx 30rpx;
+  box-shadow: var(--shadow);
+  margin-bottom: 20rpx;
+  transition: transform 0.14s ease, opacity 0.14s ease;
+}
+
+.item-hover { transform: scale(0.988); opacity: 0.94; }
+
+.r-no {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.r-preview {
+  margin-top: 14rpx;
+  font-size: 26rpx;
+  color: #334155;
+  line-height: 1.55;
+  word-break: break-all;
+}
+
+.r-id { margin-top: 8rpx; }

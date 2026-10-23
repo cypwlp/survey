@@ -28,6 +28,36 @@
     </view>
   </view>
 
+  <view class="card" wx:if="{{openid && overview.total}}">
+    <view class="row">
+      <view class="sec-title" style="margin-bottom:0">數據總覽</view>
+      <view class="faint">共 {{overview.total}} 份</view>
+    </view>
+    <view class="ov">
+      <view class="ov-item">
+        <view class="ov-num">{{overview.live}}</view>
+        <view class="faint">進行中</view>
+      </view>
+      <view class="ov-sep"></view>
+      <view class="ov-item">
+        <view class="ov-num">{{overview.answers}}</view>
+        <view class="faint">累計提交</view>
+      </view>
+      <view class="ov-sep"></view>
+      <view class="ov-item">
+        <view class="ov-num">{{overview.total}}</view>
+        <view class="faint">全部問卷</view>
+      </view>
+    </view>
+    <view class="recent" wx:if="{{recent}}" hover-class="act-hover" bindtap="goRecent">
+      <view class="recent-body">
+        <view class="recent-t">{{recent.title}}</view>
+        <view class="faint">{{recent.groupName || '未填群名'}} · {{recent.isClosed ? '已結束' : '進行中'}}</view>
+      </view>
+      <view class="act-arrow">›</view>
+    </view>
+  </view>
+
   <view class="card card--tint">
     <view class="sec-title">使用流程</view>
     <view class="step" wx:for="{{steps}}" wx:key="t">
@@ -39,7 +69,7 @@
     </view>
   </view>
 
-  <view class="card">
+  <view class="card" wx:if="{{devMode}}">
     <view class="row">
       <view class="sec-title" style="margin-bottom:0">連線狀態</view>
       <view class="tag {{openid ? 'tag-live' : 'tag-warn'}}">
@@ -56,5 +86,12 @@
     </block>
     <view class="kv" style="margin-top:16rpx" wx:if="{{devMode}}"><text class="kv-k">後端</text><text class="kv-v">{{apiBase}}</text></view>
     <view class="hint" wx:if="{{devMode}}">開發提示：開發者工具「詳情 → 本地設置」勾選不校驗合法域名；要演練群綁定請在 config.js 設定 DEV_OPEN_GID</view>
+  </view>
+
+  <view class="card" wx:if="{{!devMode && !openid}}">
+    <view class="err-box">{{loginErr || '登入進行中…'}}</view>
+    <view class="btn-group">
+      <button class="btn btn-ghost btn-sm" hover-class="btn-hover" bindtap="retryLogin">重試登入</button>
+    </view>
   </view>
 </view>

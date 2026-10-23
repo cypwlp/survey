@@ -1,0 +1,24 @@
+<view class="head">
+  <view class="head-inner">
+    <view class="head-eyebrow">回收明細</view>
+    <view class="head-title">{{title || '答卷明細'}}</view>
+    <view class="head-sub">共 {{count}} 份提交{{loading ? ' · 載入中' : ''}}</view>
+  </view>
+</view>
+
+<view class="wrap">
+  <view wx:if="{{loading}}" class="card card--overlap empty"><view class="empty-glyph">◍</view>載入中…</view>
+  <view wx:elif="{{error}}" class="card card--overlap"><view class="err-box">{{error}}</view></view>
+  <view wx:elif="{{!list.length}}" class="card card--overlap empty"><view class="empty-glyph">◍</view>還沒有人提交</view>
+
+  <block wx:else>
+    <view class="item" wx:for="{{list}}" wx:key="i" data-i="{{item.i}}" bindtap="open" hover-class="item-hover">
+      <view class="row">
+        <view class="r-no">第 {{index + 1}} 份</view>
+        <view class="faint">{{item.timeText}}</view>
+      </view>
+      <view class="r-preview">{{item.preview}}</view>
+      <view class="faint r-id">{{item.openid}}</view>
+    </view>
+  </block>
+</view>

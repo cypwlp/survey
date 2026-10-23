@@ -24,6 +24,7 @@
       <input class="input" style="flex:1" value="{{groupInput}}" bindinput="onGroupInput" placeholder="例：Topmix 生產部群" placeholder-class="ph" maxlength="100" confirm-type="完成" bindconfirm="addGroupName" />
       <view class="add-tag" hover-class="opt-hover" bindtap="addGroupName">加入</view>
     </view>
+    <view class="inline-link" hover-class="opt-hover" bindtap="pasteGroupName">從剪貼簿貼上群名</view>
     <view class="saved" wx:if="{{savedList.length}}">
       <view class="label" style="margin-top:0">以前輸入過的群名（可多選：點一下加入，再點取消）</view>
       <view class="tags">
@@ -44,6 +45,22 @@
       <view class="chip {{bindMode === 'open' ? 'chip-on' : ''}}" hover-class="opt-hover" data-mode="open" bindtap="setBindMode">開放作答</view>
     </view>
     <view class="hint">綁定群組：只有從微信群卡片進入的人能提交（可同時歸屬多個群）。開放作答：拿到卡片的人都能答。</view>
+
+    <view class="label">填寫人姓名</view>
+    <view class="chip-row">
+      <view class="chip {{nameMode === 'none' ? 'chip-on' : ''}}" hover-class="opt-hover" data-mode="none" bindtap="setNameMode">不收集</view>
+      <view class="chip {{nameMode === 'optional' ? 'chip-on' : ''}}" hover-class="opt-hover" data-mode="optional" bindtap="setNameMode">選填</view>
+      <view class="chip {{nameMode === 'required' ? 'chip-on' : ''}}" hover-class="opt-hover" data-mode="required" bindtap="setNameMode">必填</view>
+    </view>
+    <view class="hint" wx:if="{{nameMode === 'none'}}">微信不允許小程序自動讀取成員的微信暱稱；需要知道是誰交的，建議選「選填」或「必填」。</view>
+    <view class="hint" wx:else>會在題目最前面自動加一題「你的姓名／稱呼」（{{nameMode === 'required' ? '必填' : '選填'}}），匯出時也會有這一欄。</view>
+
+    <view class="label">截止日期（可選）</view>
+    <picker mode="date" value="{{deadlineDate}}" start="{{today}}" bindchange="onDeadline">
+      <view class="field {{deadlineDate ? 'field-set' : ''}}">{{deadlineDate || '不設定（手動結束）'}}</view>
+    </picker>
+    <view class="inline-link" wx:if="{{deadlineDate}}" hover-class="opt-hover" bindtap="clearDeadline">清除截止日期</view>
+    <view class="hint">到期當天 23:59（+8）自動停止接收答案。</view>
   </view>
 
   <view class="card">

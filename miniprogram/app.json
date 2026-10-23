@@ -5,6 +5,8 @@
     "pages/admin/list/list",
     "pages/admin/survey/survey",
     "pages/admin/stats/stats",
+    "pages/admin/responses/responses",
+    "pages/admin/response/response",
     "pages/answer/answer"
   ],
   "window": {

@@ -1,5 +1,63 @@
 .card--overlap { margin-top: -64rpx; }
 
+/* 搜尋與篩選 */
+.search-card { padding: 24rpx 26rpx; }
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background: #f6f8fc;
+  border-radius: 999rpx;
+  padding: 0 24rpx;
+  min-height: 84rpx;
+}
+
+.search-ico {
+  color: var(--faint);
+  font-size: 32rpx;
+  line-height: 1;
+}
+
+.search-input {
+  flex: 1;
+  height: 84rpx;
+  font-size: 27rpx;
+}
+
+.search-clear {
+  color: var(--faint);
+  font-size: 26rpx;
+  padding: 8rpx;
+}
+
+.filter-row {
+  display: flex;
+  gap: 14rpx;
+  margin-top: 18rpx;
+}
+
+.filter-chip {
+  flex: 1;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--muted);
+  background: #f6f8fc;
+  border-radius: 999rpx;
+  padding: 12rpx 0;
+  border: 2rpx solid transparent;
+}
+
+.filter-chip--on {
+  color: var(--primary);
+  background: rgba(79, 70, 229, 0.07);
+  border-color: rgba(79, 70, 229, 0.28);
+  font-weight: 600;
+}
+
+.ph { color: #b6bfcc; }
+.opt-hover { opacity: 0.6; }
+
 .item {
   background: var(--card);
   border-radius: var(--r-lg);
@@ -23,6 +81,12 @@
   font-size: 23rpx;
   color: var(--faint);
   margin-top: 8rpx;
+}
+
+.i-deadline {
+  font-size: 22rpx;
+  color: #b45309;
+  margin-top: 6rpx;
 }
 
 .i-stats {
@@ -72,3 +136,15 @@
 }
 
 .purge-zone .btn { padding-left: 0; padding-right: 0; }
+
+.load-more {
+  text-align: center;
+  font-size: 25rpx;
+  font-weight: 600;
+  color: var(--primary);
+  background: #fff;
+  border-radius: 999rpx;
+  padding: 18rpx 0;
+  margin: 6rpx 0 18rpx;
+  box-shadow: var(--shadow-sm);
+}

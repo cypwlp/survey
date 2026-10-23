@@ -11,7 +11,17 @@ function fmtTime(iso) {
 }
 
 Page({
-  data: { list: [], loading: true, error: '' },
+  data: {
+    list: [],
+    filtered: [],
+    visibleList: [],
+    visibleCount: 20,
+    loading: true,
+    error: '',
+    keyword: '',
+    filter: 'all',
+    counts: { all: 0, live: 0, ended: 0 },
+  },
 
   onShow() {
     this.load();
@@ -26,8 +36,13 @@ Page({
     this.setData({ loading: true, error: '' });
     try {
       const res = await api.get('/surveys');
-      const list = (res.list || []).map((s) => ({ ...s, dateText: fmtTime(s.CreateTime) }));
-      this.setData({ list });
+      const list = (res.list || []).map((s) => ({
+        ...s,
+        dateText: fmtTime(s.CreateTime),
+        deadlineText: fmtTime(s.Deadline),
+        isExpired: !!(s.Deadline && Date.parse(s.Deadline) <= Date.now()),
+      }));
+      this.setData({ list }, () => this.applyFilter(true));
     } catch (e) {
       this.setData({ error: e.message });
     } finally {
@@ -37,6 +52,51 @@ Page({
 
   open(e) {
     wx.navigateTo({ url: `/pages/admin/survey/survey?id=${e.currentTarget.dataset.id}` });
+  },
+
+  applyFilter(reset = false) {
+    const list = this.data.list;
+    const visibleCount = reset ? 20 : this.data.visibleCount;
+    const kw = this.data.keyword.trim().toLowerCase();
+    const filter = this.data.filter;
+    const filtered = list.filter((s) => {
+      const ended = !!(s.IsClosed || s.isExpired);
+      if (filter === 'live' && ended) return false;
+      if (filter === 'ended' && !ended) return false;
+      if (!kw) return true;
+      return ((s.Title || '') + ' ' + (s.GroupName || '')).toLowerCase().indexOf(kw) >= 0;
+    });
+    this.setData({
+      filtered,
+      visibleList: filtered.slice(0, visibleCount),
+      visibleCount,
+      counts: {
+        all: list.length,
+        live: list.filter((s) => !s.IsClosed && !s.isExpired).length,
+        ended: list.filter((s) => s.IsClosed || s.isExpired).length,
+      },
+    });
+  },
+
+  onKeyword(e) {
+    this.setData({ keyword: e.detail.value }, () => this.applyFilter(true));
+  },
+
+  setFilter(e) {
+    this.setData({ filter: e.currentTarget.dataset.f }, () => this.applyFilter(true));
+  },
+
+  clearKeyword() {
+    this.setData({ keyword: '' }, () => this.applyFilter(true));
+  },
+
+  clearAllFilter() {
+    this.setData({ keyword: '', filter: 'all' }, () => this.applyFilter(true));
+  },
+
+  loadMore() {
+    const visibleCount = this.data.visibleCount + 20;
+    this.setData({ visibleCount, visibleList: this.data.filtered.slice(0, visibleCount) });
   },
 
   goCreate() {

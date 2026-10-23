@@ -2,12 +2,13 @@
   <view class="head-inner">
     <view class="row">
       <view class="head-eyebrow">問卷詳情</view>
-      <view class="tag {{survey.isClosed ? 'tag-end' : 'tag-live'}}" wx:if="{{survey}}">
-        <text class="dot {{survey.isClosed ? 'dot-end' : 'dot-live'}}"></text>{{survey.isClosed ? '已結束' : '進行中'}}
+      <view class="tag {{survey.isClosed || survey.isExpired ? 'tag-end' : 'tag-live'}}" wx:if="{{survey}}">
+        <text class="dot {{survey.isClosed || survey.isExpired ? 'dot-end' : 'dot-live'}}"></text>{{survey.isClosed ? '已結束' : (survey.isExpired ? '已截止' : '進行中')}}
       </view>
     </view>
     <view class="head-title">{{survey.title}}</view>
     <view class="head-sub" wx:if="{{survey}}">{{survey.groupName || '未填群名'}}｜{{survey.bindMode === 'group' ? (survey.hasGroupBound ? '已有 ' + survey.groups.length + ' 個群加入' : '還沒有人從群裡進來') : '開放作答'}}</view>
+    <view class="head-sub" wx:if="{{survey && deadlineText}}">截止：{{deadlineText}}{{survey.isExpired ? '（已截止）' : ''}}</view>
   </view>
 </view>
 
@@ -17,34 +18,86 @@
 
   <block wx:elif="{{survey}}">
     <view class="card card--overlap" wx:if="{{survey.isCreator}}">
-      <view class="sec-title">分享到微信群</view>
-      <button class="btn btn-primary" hover-class="btn-hover" open-type="share">送出問卷卡片</button>
-      <view class="hint">分享前請確認已開啟「群分享攜帶 shareTicket」；成員必須從群裡的卡片進入，系統才能綁定該群。</view>
-      <view class="btn-group">
-        <button class="btn btn-ghost btn-sm" hover-class="btn-hover" bindtap="goStats">查看統計</button>
-        <button class="btn btn-quiet btn-sm" hover-class="btn-hover" bindtap="copyPath">複製進入路徑</button>
-        <button class="btn btn-quiet btn-sm" hover-class="btn-hover" bindtap="openQrcode">小程序碼</button>
+      <view class="sec-title">分享問卷</view>
+      <button class="btn btn-primary btn-share" hover-class="btn-hover" open-type="share">送出問卷卡片</button>
+
+      <view class="quick-row">
+        <view class="quick" hover-class="quick-hover" bindtap="goStats">
+          <view class="quick-ico quick-ico--a">統</view>
+          <view class="quick-t">查看統計</view>
+        </view>
+        <view class="quick" hover-class="quick-hover" bindtap="openQrcode">
+          <view class="quick-ico quick-ico--b">碼</view>
+          <view class="quick-t">小程序碼</view>
+        </view>
+        <view class="quick" hover-class="quick-hover" bindtap="copyPath">
+          <view class="quick-ico quick-ico--c">複</view>
+          <view class="quick-t">複製路徑</view>
+        </view>
       </view>
-      <view class="hint">未被搜尋／被分享的帳號（未認證）用「小程序碼」分發：長按圖片保存或轉發，朋友掃碼即進入（僅「開放作答」模式；「綁定群組」必須從群卡片進入）。</view>
+
+      <view class="hint" wx:if="{{survey.bindMode === 'group'}}">成員要從微信群卡片進入才會綁定該群；掃碼／轉發請先改成「開放作答」。</view>
+      <view class="hint" wx:else>掃碼或轉發給朋友，拿到入口的人都能直接作答。</view>
     </view>
 
-    <view class="grid2" wx:if="{{survey.isCreator}}">
-      <view class="tile" hover-class="item-hover" bindtap="toggleClose">
-        <view class="tile-t">{{survey.isClosed ? '重新開放' : '結束問卷'}}</view>
-        <view class="faint">{{survey.isClosed ? '讓成員能繼續提交' : '停止接收新答案'}}</view>
-      </view>
-      <view class="tile {{survey.bindMode === 'group' && survey.hasGroupBound ? '' : 'tile--off'}}"
-            hover-class="item-hover" bindtap="unbind"
-            wx:if="{{survey.bindMode === 'group' && survey.hasGroupBound}}">
-        <view class="tile-t">解除全部群綁定</view>
-        <view class="faint">清掉已加入的群，重新累計</view>
-      </view>
-    </view>
+    <view class="card" wx:if="{{survey.isCreator}}">
+      <view class="sec-title">問卷管理</view>
+      <view class="menu">
+        <view class="menu-row" hover-class="menu-hover" bindtap="toggleClose">
+          <view class="menu-main">
+            <view class="menu-t">{{survey.isClosed ? '重新開放問卷' : '結束問卷'}}</view>
+            <view class="menu-d">{{survey.isClosed ? '讓成員可以繼續提交' : '停止接收新答案'}}</view>
+          </view>
+          <view class="menu-arrow">›</view>
+        </view>
 
-    <view class="grid2" wx:if="{{survey.isCreator}}">
-      <view class="tile" hover-class="item-hover" bindtap="toggleBindMode">
-        <view class="tile-t">{{survey.bindMode === 'group' ? '改為「開放作答」' : '改為「綁定群組」'}}</view>
-        <view class="faint">{{survey.bindMode === 'group' ? '掃碼／轉發都能提交，適合二維碼分發' : '恢復成必須從群卡片進入'}}</view>
+        <view class="menu-row" hover-class="menu-hover" bindtap="toggleBindMode">
+          <view class="menu-main">
+            <view class="menu-t">作答範圍</view>
+            <view class="menu-d">{{survey.bindMode === 'group' ? '綁定群組：需從群卡片進入' : '開放作答：掃碼、轉發都能答'}}</view>
+          </view>
+          <view class="menu-side">
+            <text class="tag tag-info">{{survey.bindMode === 'group' ? '綁定群組' : '開放作答'}}</text>
+            <text class="menu-arrow">›</text>
+          </view>
+        </view>
+
+        <picker class="menu-picker" mode="date" value="{{deadlineDate}}" start="{{today}}" bindchange="onDeadlineChange">
+          <view class="menu-row" hover-class="menu-hover">
+            <view class="menu-main">
+              <view class="menu-t">截止時間</view>
+              <view class="menu-d">{{deadlineText || '未設定（手動結束）'}}</view>
+            </view>
+            <view class="menu-side">
+              <text class="tag tag-info">{{survey.deadline ? '修改' : '設定'}}</text>
+              <text class="menu-arrow">›</text>
+            </view>
+          </view>
+        </picker>
+
+        <view class="menu-row" wx:if="{{survey.deadline}}" hover-class="menu-hover" bindtap="clearDeadline">
+          <view class="menu-main">
+            <view class="menu-t">清除截止時間</view>
+            <view class="menu-d">清除後不會再自動停止收答案</view>
+          </view>
+          <view class="menu-arrow">›</view>
+        </view>
+
+        <view class="menu-row" hover-class="menu-hover" bindtap="unbind" wx:if="{{survey.bindMode === 'group' && survey.hasGroupBound}}">
+          <view class="menu-main">
+            <view class="menu-t">解除全部群綁定</view>
+            <view class="menu-d">清掉已加入的群，重新累計</view>
+          </view>
+          <view class="menu-arrow">›</view>
+        </view>
+
+        <view class="menu-row menu-row--danger" hover-class="menu-hover" bindtap="deleteSurvey">
+          <view class="menu-main">
+            <view class="menu-t">刪除問卷</view>
+            <view class="menu-d">連同答卷、開啟記錄、群綁定一起刪除</view>
+          </view>
+          <view class="menu-arrow">›</view>
+        </view>
       </view>
     </view>
 
@@ -61,8 +114,11 @@
     </view>
 
     <view class="card card--tint" wx:if="{{survey.announcement}}">
-      <view class="sec-title">公告內容</view>
-      <view class="announce">{{survey.announcement}}</view>
+      <view class="row">
+        <view class="sec-title" style="margin-bottom:0">公告內容</view>
+        <view class="link-btn" wx:if="{{announceLong}}" hover-class="opt-hover" bindtap="toggleAnnounce">{{announceOpen ? '收起' : '展開全文'}}</view>
+      </view>
+      <view class="announce {{announceLong && !announceOpen ? 'announce--clamp' : ''}}">{{survey.announcement}}</view>
     </view>
 
     <view class="card">
@@ -126,11 +182,6 @@
       </block>
     </view>
 
-    <view class="card" wx:if="{{survey.isCreator}}">
-      <view class="sec-title">刪除問卷</view>
-      <view class="hint">把這份問卷連同它的全部答卷、開啟記錄、群綁定一起刪掉，不可恢復。</view>
-      <button class="btn btn-danger btn-sm" hover-class="btn-hover" bindtap="deleteSurvey" loading="{{deleting}}" disabled="{{deleting}}">刪除這份問卷</button>
-    </view>
   </block>
 </view>
 
@@ -141,8 +192,9 @@
     <view class="qr-err" wx:elif="{{qrError}}">{{qrError}}</view>
     <block wx:else>
       <image class="qr-img" src="{{qrImage}}" mode="widthFix" show-menu-by-longpress="{{true}}" />
-      <view class="qr-tip">長按圖片 → 保存到手機 或 轉發給朋友</view>
+      <view class="qr-tip">長按圖片保存，或點下方按鈕存到相冊</view>
       <view class="qr-tip qr-tip-faint">朋友掃一掃／在聊天裡長按識別，就能直接進入答題頁</view>
+      <button class="btn btn-ghost btn-sm qr-save" hover-class="btn-hover" bindtap="saveQrcode">保存到相冊</button>
     </block>
     <button class="btn btn-quiet btn-sm" hover-class="btn-hover" bindtap="closeQrcode">關閉</button>
   </view>

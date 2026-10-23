@@ -153,13 +153,28 @@ Page({
   },
 
   async submit() {
+    if (this.data.submitting) return;
     const { survey, answers, sid } = this.data;
+    if (survey.isClosed || survey.isExpired) {
+      return wx.showToast({ title: survey.isExpired ? '問卷已截止' : '問卷已結束', icon: 'none' });
+    }
+    let missing = -1;
     for (let i = 0; i < survey.questions.length; i++) {
       const q = survey.questions[i];
-      if (q.required && !(answers[q.k] || '').trim()) {
-        return wx.showToast({ title: `第 ${i + 1} 題是必填`, icon: 'none' });
-      }
+      if (q.required && !(answers[q.k] || '').trim()) { missing = i; break; }
     }
+    if (missing >= 0) {
+      wx.showToast({ title: `第 ${missing + 1} 題是必填`, icon: 'none' });
+      wx.pageScrollTo({ selector: '#q-' + survey.questions[missing].k, duration: 250, offsetTop: -24 });
+      return;
+    }
+    const confirmed = await new Promise((resolve) => wx.showModal({
+      title: '提交問卷',
+      content: '提交後無法修改，管理員會看到你的答案。確定提交嗎？',
+      confirmText: '提交',
+      success: (r) => resolve(!!r.confirm),
+    }));
+    if (!confirmed) return;
     const answerList = survey.questions.map((q) => ({ k: q.k, value: (answers[q.k] || '').trim() }));
     this.setData({ submitting: true });
     try {

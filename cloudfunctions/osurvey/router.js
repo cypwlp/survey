@@ -8,7 +8,7 @@
  *  2. 群 openGId 走 CloudID（微信在雲函式入口就把 openGId 解好塞進 event），不是 AES 解密。
  */
 const { validateQuestions, gradeAnswers } = require('./lib/questions');
-const { buildStats, buildCsv, buildXlsx, parseSurvey } = require('./lib/stats');
+const { buildStats, buildCsv, buildXlsx, parseSurvey, maskOpenId } = require('./lib/stats');
 
 function httpError(status, message) {
   const e = new Error(message);
@@ -18,7 +18,58 @@ function httpError(status, message) {
 
 const ok = (data) => ({ statusCode: 200, data });
 
-function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = null, log = () => {} }) {
+function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = null, checkContent = null, log = () => {} }) {
+  function splitChunks(text, size = 2000) {
+    const s = String(text || '');
+    const out = [];
+    for (let i = 0; i < s.length && out.length < 20; i += size) out.push(s.slice(i, i + size));
+    return out;
+  }
+
+  // 把一次操作裡所有用戶輸入併起來送檢；任何一段 risky 就整筆擋下。
+  async function assertSafeContent(parts, openid) {
+    if (typeof checkContent !== 'function') return;
+    const text = (Array.isArray(parts) ? parts : [parts])
+      .filter((x) => x !== null && x !== undefined && String(x).trim() !== '')
+      .map(String)
+      .join('\n')
+      .trim();
+    if (!text) return;
+    for (const chunk of splitChunks(text)) {
+      const r = await checkContent({ content: chunk, openid, scene: 2 });
+      if (r && r.ok === false) throw httpError(400, '內容包含不當資訊，請修改後再送出');
+    }
+  }
+
+  function isExpired(survey) {
+    return !!(survey && survey.Deadline && Date.parse(survey.Deadline) <= Date.now());
+  }
+
+  function normalizeDeadline(value) {
+    if (!value) return null;
+    const t = Date.parse(value);
+    return isNaN(t) ? null : new Date(t).toISOString();
+  }
+
+  // 近 7 天（+8 時區）每日提交數，給統計頁畫趨勢柱狀圖
+  function dailyTrend(answerRows, days = 7) {
+    const out = [];
+    const now = Date.now();
+    for (let i = days - 1; i >= 0; i--) {
+      const day = new Date(now - i * 86400000 + 8 * 3600000).toISOString().slice(0, 10);
+      out.push({ day, label: day.slice(5), count: 0 });
+    }
+    const byDay = new Map(out.map((x) => [x.day, x]));
+    for (const a of answerRows) {
+      const t = Date.parse(a.SubmitTime);
+      if (isNaN(t)) continue;
+      const day = new Date(t + 8 * 3600000).toISOString().slice(0, 10);
+      const hit = byDay.get(day);
+      if (hit) hit.count += 1;
+    }
+    return out;
+  }
+
   const shareOf = (req) => ({
     shareCloudId: req.shareCloudId,
     devOpenGId: req.data && req.data.devOpenGId,
@@ -50,13 +101,20 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
     if (!title) throw httpError(400, '缺少標題');
     const { questions, error } = validateQuestions(body.questions);
     if (error) throw httpError(400, error);
+    const groupName = String(body.groupName || '').trim().slice(0, 100);
+    const announcement = String(body.announcement || '').slice(0, 20000);
+    const deadline = normalizeDeadline(body.deadline);
+    const safeParts = [title, groupName, announcement];
+    for (const q of questions) safeParts.push(q.title, ...(q.options || []));
+    await assertSafeContent(safeParts, req.openid);
     const surveyId = await db.createSurvey({
       title,
-      groupName: String(body.groupName || '').trim().slice(0, 100),
+      groupName,
       bindMode: body.bindMode === 'open' ? 'open' : 'group',
-      announcement: String(body.announcement || '').slice(0, 20000),
+      announcement,
       questionsJson: JSON.stringify(questions),
       creatorOpenId: req.openid,
+      deadline,
     });
     return ok({ surveyId });
   }
@@ -98,6 +156,8 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
       groups: groups.map((g) => ({ openGId: g.OpenGId, firstSeenAt: g.FirstSeenAt })),
       bindMode: survey.BindMode,
       isClosed: !!survey.IsClosed,
+      deadline: survey.Deadline || null,
+      isExpired: isExpired(survey),
       announcement: survey.Announcement,
       questions: parseSurvey(survey),
       isCreator: survey.CreatorOpenId === req.openid,
@@ -111,6 +171,13 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
     const closed = !!(req.data && req.data.closed);
     await db.setClosed(survey.SurveyId, closed);
     return ok({ ok: true, isClosed: closed });
+  }
+
+  async function setSurveyDeadline(params, req) {
+    const survey = await loadOwned(Number(params[0]), req.openid);
+    const deadline = normalizeDeadline(req.data && req.data.deadline);
+    await db.setDeadline(survey.SurveyId, deadline);
+    return ok({ ok: true, deadline });
   }
 
   // 切換作答範圍：綁定群組 ⇄ 開放作答（只影響之後的提交校驗；二維碼分發必須用「開放作答」）
@@ -147,6 +214,9 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
     const survey = await loadOwned(Number(params[0]), req.openid);
     const { questions, error } = validateQuestions(req.data && req.data.questions);
     if (error) throw httpError(400, error);
+    const safeParts = [];
+    for (const q of questions) safeParts.push(q.title, ...(q.options || []));
+    await assertSafeContent(safeParts, req.openid);
     await db.updateSurveyQuestions(survey.SurveyId, JSON.stringify(questions));
     return ok({ ok: true, questions });
   }
@@ -220,10 +290,13 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
     const survey = await db.getSurvey(id);
     if (!survey) throw httpError(404, '問卷不存在');
     if (survey.IsClosed) throw httpError(409, '問卷已結束');
+    if (isExpired(survey)) throw httpError(409, '問卷已截止');
 
     const questions = parseSurvey(survey);
     const { answers, error } = gradeAnswers(questions, req.data && req.data.answers);
     if (error) throw httpError(400, error);
+
+    await assertSafeContent(answers.map((a) => a.value), req.openid);
 
     // 群綁定：group 模式必須帶有效分享資訊；首次提交時綁定該群
     let openGId = null;
@@ -264,13 +337,45 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
       title: survey.Title,
       bindMode: survey.BindMode,
       isClosed: !!survey.IsClosed,
+      deadline: survey.Deadline || null,
+      isExpired: isExpired(survey),
       hasGroupBound: boundGroups.length > 0,
       groupCount: boundGroups.length,
       perGroup,
       visitCount: await db.countVisits(id),
       answerCount: answers.length,
       lastSubmitTime: rows.length ? rows[rows.length - 1].submitTime : null,
+      daily: dailyTrend(answers),
       questions,
+    });
+  }
+
+  // 答卷明細：一份一份看（openid 只回打碼後的版本）
+  async function responses(params, req) {
+    const id = Number(params[0]);
+    const survey = await loadOwned(id, req.openid);
+    const answers = await db.listAnswers(id);
+    const list = answers.map((a, i) => {
+      let parsed = [];
+      try {
+        parsed = typeof a.AnswersJson === 'string' ? JSON.parse(a.AnswersJson) : a.AnswersJson;
+      } catch (e) {
+        parsed = [];
+      }
+      return {
+        i,
+        openid: maskOpenId(a.OpenId),
+        openGId: a.OpenGId || '',
+        submitTime: a.SubmitTime,
+        answers: Array.isArray(parsed) ? parsed : [],
+      };
+    });
+    return ok({
+      surveyId: id,
+      title: survey.Title,
+      count: list.length,
+      questions: parseSurvey(survey),
+      list,
     });
   }
 
@@ -320,6 +425,7 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
     ['POST', /^\/groupnames$/, saveGroupNames],
     ['GET', /^\/surveys\/(\d+)$/, getSurvey],
     ['POST', /^\/surveys\/(\d+)\/close$/, closeSurvey],
+    ['POST', /^\/surveys\/(\d+)\/deadline$/, setSurveyDeadline],
     ['POST', /^\/surveys\/(\d+)\/bindmode$/, setBindMode],
     ['POST', /^\/surveys\/(\d+)\/unbind$/, unbindGroups],
     ['POST', /^\/surveys\/(\d+)\/reorder$/, reorderQuestions],
@@ -330,6 +436,7 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
     ['POST', /^\/surveys\/(\d+)\/visit$/, visit],
     ['POST', /^\/surveys\/(\d+)\/answer$/, submitAnswer],
     ['GET', /^\/surveys\/(\d+)\/stats$/, stats],
+    ['GET', /^\/surveys\/(\d+)\/responses$/, responses],
     ['GET', /^\/surveys\/(\d+)\/export\.csv$/, exportCsv],
     ['GET', /^\/surveys\/(\d+)\/export\.xlsx$/, exportXlsx],
     ['POST', /^\/admin\/importSeed$/, importSeed],

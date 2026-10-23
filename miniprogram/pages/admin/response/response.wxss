@@ -1,0 +1,41 @@
+.card--overlap { margin-top: -64rpx; }
+
+.q-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+  margin-bottom: 14rpx;
+}
+
+.q-no {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 14rpx;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+  font-size: 23rpx;
+  font-weight: 700;
+  text-align: center;
+  line-height: 44rpx;
+  flex-shrink: 0;
+}
+
+.q-title {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.answer-box {
+  white-space: pre-wrap;
+  color: #334155;
+  background: #f6f8fc;
+  border-radius: var(--r-md);
+  padding: 22rpx;
+  font-size: 27rpx;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.answer-empty { color: var(--faint); }

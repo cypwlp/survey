@@ -41,6 +41,22 @@
   flex-shrink: 0;
 }
 
+.inline-link {
+  display: inline-block;
+  font-size: 23rpx;
+  font-weight: 600;
+  color: var(--primary);
+  margin-top: 12rpx;
+}
+
+.field-set {
+  border-color: var(--primary);
+  background: rgba(79, 70, 229, 0.06);
+  color: var(--primary);
+  font-weight: 600;
+  text-align: left;
+}
+
 .row .input { width: auto; }
 
 /* 標題用可長高的 textarea，比單行 input 好按、也看得完整 */
@@ -139,3 +155,16 @@
 }
 
 .opt-hover { opacity: 0.66; }
+
+/* 建立按鈕固定在底部，長表單不用滑到底 */
+.wrap { padding-bottom: 280rpx; }
+
+.submit-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  background: linear-gradient(180deg, rgba(244, 246, 251, 0) 0%, rgba(244, 246, 251, 0.96) 26%, #f4f6fb 100%);
+  padding: 24rpx 28rpx calc(30rpx + env(safe-area-inset-bottom));
+}

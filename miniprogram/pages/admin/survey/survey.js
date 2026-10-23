@@ -2,8 +2,18 @@ const api = require('../../../utils/api.js');
 
 const TYPE_KEYS = ['text', 'choice', 'date'];
 
+// 截止時間存 UTC ISO，畫面固定顯示 +8 牆上時間
+function fmtDeadline(iso) {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (isNaN(t)) return '';
+  const d = new Date(t + 8 * 3600 * 1000);
+  const p = (n) => (n < 10 ? '0' + n : '' + n);
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+
 Page({
-  data: { id: 0, survey: null, loading: true, error: '', editMode: false, draft: [], typeLabels: ['填充題', '單選題', '日期選擇'], saving: false, deleting: false, qrVisible: false, qrLoading: false, qrImage: '', qrError: '', qrScene: '' },
+  data: { id: 0, survey: null, loading: true, error: '', editMode: false, draft: [], typeLabels: ['填充題', '單選題', '日期選擇'], saving: false, deleting: false, qrVisible: false, qrLoading: false, qrImage: '', qrError: '', qrScene: '', announceOpen: false, announceLong: false, deadlineText: '', deadlineDate: '', today: '' },
 
   onLoad(options) {
     this.setData({ id: Number(options.id || 0) });
@@ -14,10 +24,20 @@ Page({
     if (this.data.id) this.load();
   },
 
+  async onPullDownRefresh() {
+    await this.load();
+    wx.stopPullDownRefresh();
+  },
+
   async load() {
     try {
       const survey = await api.get(`/surveys/${this.data.id}`);
-      this.setData({ survey, error: '' });
+      const announceLong = !!(survey.announcement && survey.announcement.length > 140);
+      const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+      const deadlineDate = survey.deadline
+        ? new Date(Date.parse(survey.deadline) + 8 * 3600 * 1000).toISOString().slice(0, 10)
+        : '';
+      this.setData({ survey, announceLong, deadlineText: fmtDeadline(survey.deadline), deadlineDate, today, error: '' });
     } catch (e) {
       this.setData({ error: e.message });
     } finally {
@@ -167,8 +187,8 @@ Page({
     });
   },
 
-  // 未認證帳號不能「被分享／被搜尋」，二維碼是唯一能把問卷發出去的方式。
-  // 圖片長按可保存／轉發，朋友掃碼或長按識別即進入答題頁。
+  // 小程序碼分發：圖片長按可保存／轉發，朋友掃碼或長按識別即進入答題頁。
+  // 綁定群組模式仍要求從群卡片進入；掃碼分發請把作答範圍改成「開放作答」。
   openQrcode() {
     if (this.data.qrLoading) return;
     this.setData({ qrVisible: true, qrLoading: true, qrImage: '', qrError: '', qrScene: '' });
@@ -179,6 +199,44 @@ Page({
 
   closeQrcode() {
     this.setData({ qrVisible: false });
+  },
+
+  toggleAnnounce() {
+    this.setData({ announceOpen: !this.data.announceOpen });
+  },
+
+  // 把 base64 小程序碼寫成暫存檔，再存進相冊；沒有權限時引導去設置頁開權限
+  saveQrcode() {
+    const src = String(this.data.qrImage || '');
+    const b64 = src.replace(/^data:image\/png;base64,/, '');
+    if (!b64) return;
+    const filePath = `${wx.env.USER_DATA_PATH}/survey-qr-${this.data.id}.png`;
+    const failTip = () => wx.showToast({ title: '保存失敗，可長按圖片保存', icon: 'none' });
+    wx.getFileSystemManager().writeFile({
+      filePath,
+      data: b64,
+      encoding: 'base64',
+      success: () => {
+        wx.saveImageToPhotosAlbum({
+          filePath,
+          success: () => wx.showToast({ title: '已保存到相冊', icon: 'success' }),
+          fail: (e) => {
+            const msg = (e && e.errMsg) || '';
+            if (msg.indexOf('auth') >= 0 || msg.indexOf('deny') >= 0) {
+              wx.showModal({
+                title: '需要相冊權限',
+                content: '請允許「保存到相冊」，才能把小程序碼存到手機。',
+                confirmText: '去設置',
+                success: (r) => { if (r.confirm) wx.openSetting(); },
+              });
+            } else {
+              failTip();
+            }
+          },
+        });
+      },
+      fail: failTip,
+    });
   },
 
   noop() {},
@@ -215,6 +273,39 @@ Page({
     if (!res.confirm) return;
     try {
       await api.post(`/surveys/${this.data.id}/close`, { closed: !s.isClosed });
+      this.load();
+    } catch (e) {
+      wx.showToast({ title: e.message, icon: 'none' });
+    }
+  },
+
+  async onDeadlineChange(e) {
+    const date = e.detail.value;
+    const res = await new Promise((r) => wx.showModal({
+      title: '設定截止時間',
+      content: `${date} 23:59（+8）之後自動停止收答案。確定嗎？`,
+      success: r,
+    }));
+    if (!res.confirm) return;
+    try {
+      await api.post(`/surveys/${this.data.id}/deadline`, { deadline: new Date(date + 'T23:59:59+08:00').toISOString() });
+      wx.showToast({ title: '已設定截止時間', icon: 'success' });
+      this.load();
+    } catch (e) {
+      wx.showToast({ title: e.message, icon: 'none' });
+    }
+  },
+
+  async clearDeadline() {
+    const res = await new Promise((r) => wx.showModal({
+      title: '清除截止時間',
+      content: '清除後不會再自動停止收答案。確定嗎？',
+      success: r,
+    }));
+    if (!res.confirm) return;
+    try {
+      await api.post(`/surveys/${this.data.id}/deadline`, { deadline: null });
+      wx.showToast({ title: '已清除', icon: 'success' });
       this.load();
     } catch (e) {
       wx.showToast({ title: e.message, icon: 'none' });

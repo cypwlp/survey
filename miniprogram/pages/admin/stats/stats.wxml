@@ -2,7 +2,8 @@
   <view class="head-inner">
     <view class="head-eyebrow">回收統計</view>
     <view class="head-title">{{stats.title}}</view>
-    <view class="head-sub" wx:if="{{stats}}">{{stats.isClosed ? '問卷已結束' : '問卷進行中'}}｜{{stats.hasGroupBound ? '已綁定群組' : (stats.bindMode === 'group' ? '待綁定群組' : '開放作答')}}</view>
+    <view class="head-sub" wx:if="{{stats}}">{{stats.isClosed ? '問卷已結束' : (stats.isExpired ? '問卷已截止' : '問卷進行中')}}｜{{stats.hasGroupBound ? '已綁定群組' : (stats.bindMode === 'group' ? '待綁定群組' : '開放作答')}}</view>
+    <view class="head-sub" wx:if="{{stats && deadlineText}}">截止：{{deadlineText}}</view>
   </view>
 </view>
 
@@ -26,6 +27,31 @@
         <view class="kpi-num">{{rate}}</view>
         <view class="kpi-l">提交／開啟</view>
       </view>
+    </view>
+
+    <view class="kpi-foot" wx:if="{{lastSubmitText}}">最近提交：{{lastSubmitText}}</view>
+
+    <view class="card" wx:if="{{stats.daily.length}}">
+      <view class="row">
+        <view class="sec-title" style="margin-bottom:0">近 7 天提交</view>
+        <view class="faint">今天 {{todayCount}} 份</view>
+      </view>
+      <view class="trend">
+        <view class="trend-col" wx:for="{{stats.daily}}" wx:key="day">
+          <view class="trend-val">{{item.count ? item.count : ''}}</view>
+          <view class="trend-track"><view class="trend-bar" style="height: {{item.h}}%"></view></view>
+          <view class="trend-label">{{item.label}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="row">
+        <view class="sec-title" style="margin-bottom:0">答卷明細</view>
+        <view class="tag tag-info">{{stats.answerCount}} 份</view>
+      </view>
+      <view class="hint">一份一份查看每個人填的內容（openid 已打碼）。</view>
+      <button class="btn btn-ghost btn-sm" hover-class="btn-hover" bindtap="goResponses">查看全部答卷</button>
     </view>
 
     <view class="card" wx:if="{{stats.perGroup.length}}">
@@ -63,20 +89,23 @@
       <view class="faint" style="margin-bottom:18rpx">已回收 {{q.answerCount}} 份</view>
 
       <block wx:if="{{q.type === 'choice'}}">
+        <view class="stack">
+          <view class="stack-seg" wx:for="{{q.distribution}}" wx:key="option" wx:for-item="d" style="width: {{d.pct}}%; background: {{d.color}}"></view>
+        </view>
         <view class="dist" wx:for="{{q.distribution}}" wx:key="option" wx:for-item="d">
           <view class="dist-top">
-            <text class="dist-label">{{d.option}}</text>
+            <view class="dist-label"><text class="dist-dot" style="background: {{d.color}}"></text>{{d.option}}</view>
             <text class="dist-pct">{{d.count}} 份 · {{d.pct}}%</text>
           </view>
-          <view class="dist-track"><view class="dist-bar" style="width: {{d.bar}}"></view></view>
+          <view class="dist-track"><view class="dist-bar" style="width: {{d.bar}}; background: {{d.color}}"></view></view>
         </view>
       </block>
 
       <block wx:else>
-        <view class="cloud" wx:if="{{q.words.length}}">
+        <view class="cloud" wx:if="{{q.words.length && q.k !== 'name'}}">
           <text class="cloud-w tier{{w.tier}}" wx:for="{{q.words}}" wx:key="w" wx:for-item="w" style="font-size: {{w.fs}}rpx">{{w.w}}</text>
         </view>
-        <view class="faint" wx:if="{{q.words.length}}" style="margin-bottom:8rpx">高頻詞（2 字詞組統計，非分詞）</view>
+        <view class="faint" wx:if="{{q.words.length && q.k !== 'name'}}" style="margin-bottom:8rpx">高頻詞（2 字詞組統計，非分詞）</view>
 
         <view wx:if="{{!q.texts.length}}" class="empty" style="padding:30rpx 0">（尚無回答）</view>
         <view class="ans" wx:for="{{q.texts}}" wx:key="openid" wx:for-item="t">

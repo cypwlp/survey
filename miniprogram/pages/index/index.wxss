@@ -85,6 +85,50 @@
   line-height: 1;
 }
 
+/* 我的問卷總覽 */
+.ov {
+  display: flex;
+  align-items: center;
+  padding: 26rpx 0 10rpx;
+}
+
+.ov-item {
+  flex: 1;
+  text-align: center;
+}
+
+.ov-num {
+  font-size: 44rpx;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1.2;
+}
+
+.ov-sep {
+  width: 2rpx;
+  height: 48rpx;
+  background: var(--line);
+}
+
+.recent {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background: #f7f9fd;
+  border-radius: var(--r-md);
+  padding: 20rpx 24rpx;
+  margin-top: 18rpx;
+}
+
+.recent-body { flex: 1; }
+
+.recent-t {
+  font-size: 27rpx;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
 /* 流程 */
 .step {
   display: flex;

@@ -20,6 +20,8 @@ Page({
     apiBase: BACKEND_LABEL,
     devMode: isDevMode(),
     loginErr: '',
+    overview: { total: 0, live: 0, answers: 0 },
+    recent: null,
     steps: [
       { t: '建立問卷', d: '管理員輸入群名、貼上公告，確認 5W 題目' },
       { t: '分享到群', d: '送出問卷卡片到微信群，成員從卡片進入' },
@@ -28,19 +30,46 @@ Page({
     ],
   },
 
-  onShow() {
+  async onShow() {
     this.setData({ apiBase: BACKEND_LABEL });
-    api.ensureLogin()
-      .then(() => this.setData({ openid: api.getOpenid(), loginErr: '' }))
-      .catch((e) => this.setData({ openid: '', loginErr: e.message }));
+    try {
+      await api.ensureLogin();
+      this.setData({ openid: api.getOpenid(), loginErr: '' });
+    } catch (e) {
+      this.setData({ openid: '', loginErr: e.message, overview: { total: 0, live: 0, answers: 0 }, recent: null });
+      return;
+    }
+    try {
+      const res = await api.get('/surveys');
+      const list = res.list || [];
+      const latest = list[0];
+      this.setData({
+        overview: {
+          total: list.length,
+          live: list.filter((s) => !s.IsClosed).length,
+          answers: list.reduce((n, s) => n + (Number(s.AnswerCount) || 0), 0),
+        },
+        recent: latest
+          ? { id: latest.SurveyId, title: latest.Title, groupName: latest.GroupName, isClosed: !!latest.IsClosed }
+          : null,
+      });
+    } catch (e) {
+      // 總覽載入失敗不影響主要操作
+    }
   },
 
   retryLogin() {
-    api.ensureLogin()
-      .then(() => this.setData({ openid: api.getOpenid(), loginErr: '' }))
-      .catch((e) => this.setData({ openid: '', loginErr: e.message }));
+    this.onShow();
+  },
+
+  async onPullDownRefresh() {
+    await this.onShow();
+    wx.stopPullDownRefresh();
   },
 
   goCreate() { wx.navigateTo({ url: '/pages/admin/create/create' }); },
   goList() { wx.navigateTo({ url: '/pages/admin/list/list' }); },
+  goRecent() {
+    if (this.data.recent) wx.navigateTo({ url: `/pages/admin/survey/survey?id=${this.data.recent.id}` });
+  },
 });

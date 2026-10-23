@@ -83,7 +83,7 @@ function cloudDriver(cloud, { log = () => {} } = {}) {
       }
     },
 
-    async createSurvey({ title, groupName, bindMode, announcement, questionsJson, creatorOpenId, surveyId }) {
+    async createSurvey({ title, groupName, bindMode, announcement, questionsJson, creatorOpenId, surveyId, deadline }) {
       let id = Number(surveyId) || 0;
       for (let attempt = 0; attempt < 6; attempt++) {
         if (!id) {
@@ -93,7 +93,8 @@ function cloudDriver(cloud, { log = () => {} } = {}) {
         const doc = {
           _id: String(id), SurveyId: id, Title: title, GroupName: groupName || null, OpenGId: null,
           BindMode: bindMode, Announcement: announcement || null, QuestionsJson: questionsJson,
-          CreatorOpenId: creatorOpenId, IsClosed: false, CreateTime: nowIso(), UpdateTime: nowIso(),
+          CreatorOpenId: creatorOpenId, IsClosed: false, Deadline: deadline || null,
+          CreateTime: nowIso(), UpdateTime: nowIso(),
         };
         if (await addIfAbsent('survey', doc)) return id;
         id = 0;   // 撞號（有人同時建立）→ 重新取最大號再試
@@ -110,6 +111,7 @@ function cloudDriver(cloud, { log = () => {} } = {}) {
           _id: String(s.SurveyId), SurveyId: Number(s.SurveyId), Title: s.Title, GroupName: s.GroupName || null,
           OpenGId: null, BindMode: s.BindMode, Announcement: s.Announcement || null,
           QuestionsJson: s.QuestionsJson, CreatorOpenId: s.CreatorOpenId, IsClosed: !!s.IsClosed,
+          Deadline: s.Deadline || null,
           CreateTime: s.CreateTime || nowIso(), UpdateTime: s.UpdateTime || nowIso(),
         });
       }
@@ -156,13 +158,23 @@ function cloudDriver(cloud, { log = () => {} } = {}) {
       for (const s of rows) {
         const answers = await db.collection('answer').where({ SurveyId: s.SurveyId }).count();
         const visits = await db.collection('visit').where({ SurveyId: s.SurveyId }).count();
-        out.push({ ...s, AnswerCount: answers.total, VisitCount: visits.total });
+        out.push({
+          ...s,
+          AnswerCount: answers.total,
+          VisitCount: visits.total,
+          IsExpired: !!(s.Deadline && Date.parse(s.Deadline) <= Date.now()),
+        });
       }
       return out;
     },
 
     async setClosed(id, closed) {
       const n = await patch('survey', { SurveyId: Number(id) }, { IsClosed: !!closed, UpdateTime: nowIso() });
+      return n > 0;
+    },
+
+    async setDeadline(id, deadline) {
+      const n = await patch('survey', { SurveyId: Number(id) }, { Deadline: deadline || null, UpdateTime: nowIso() });
       return n > 0;
     },
 

@@ -55,11 +55,36 @@ async function genWxacode({ page, scene, envVersion }) {
   return res.buffer;
 }
 
+// 用戶輸入內容安全檢測（問卷標題／公告／題目／答案都是 UGC）。
+// 雲調用失敗（權限未開、網路問題）時先放行並記 log，避免整個小程序不可用；
+// 明確判定 risky（v2 的 result.suggest 或 v1 的 errCode 87014）才攔截。
+async function checkContent({ content, openid, scene = 2 }) {
+  try {
+    const res = await cloud.openapi.security.msgSecCheck({
+      content: String(content || ''),
+      version: 2,
+      scene,
+      openid,
+    });
+    const result = (res && res.result) || {};
+    return {
+      ok: result.suggest !== 'risky',
+      suggest: result.suggest || 'pass',
+      label: result.label || 0,
+    };
+  } catch (e) {
+    if (e && Number(e.errCode) === 87014) return { ok: false, suggest: 'risky', label: 87014 };
+    console.warn('[osurvey] msgSecCheck 失敗，先放行：', (e && (e.errMsg || e.message)) || e);
+    return { ok: true, suggest: 'unknown', error: true };
+  }
+}
+
 const router = createRouter({
   db,
   resolveOpenData,
   allowDevGid: ALLOW_DEV_GID,
   genWxacode,
+  checkContent,
   log: (m) => console.log(m),
 });
 

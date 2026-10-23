@@ -2,7 +2,8 @@
   "timeout": 20,
   "permissions": {
     "openapi": [
-      "wxacode.getUnlimited"
+      "wxacode.getUnlimited",
+      "security.msgSecCheck"
     ]
   }
 }

@@ -13,19 +13,40 @@
   <view wx:elif="{{error}}" class="card card--overlap">
     <view class="err-box">{{error}}</view>
   </view>
-  <view wx:elif="{{!list.length}}" class="card card--overlap empty">
-    <view class="empty-glyph">◍</view>還沒有問卷，點右下角 ＋ 建立
-  </view>
+  <block wx:else>
+    <view class="card card--overlap search-card" wx:if="{{list.length}}">
+      <view class="search-box">
+        <text class="search-ico">⌕</text>
+        <input class="search-input" value="{{keyword}}" bindinput="onKeyword" placeholder="搜尋問卷標題或群名" placeholder-class="ph" confirm-type="search" />
+        <text class="search-clear" wx:if="{{keyword}}" hover-class="opt-hover" bindtap="clearKeyword">✕</text>
+      </view>
+      <view class="filter-row">
+        <view class="filter-chip {{filter === 'all' ? 'filter-chip--on' : ''}}" data-f="all" bindtap="setFilter">全部 {{counts.all}}</view>
+        <view class="filter-chip {{filter === 'live' ? 'filter-chip--on' : ''}}" data-f="live" bindtap="setFilter">進行中 {{counts.live}}</view>
+        <view class="filter-chip {{filter === 'ended' ? 'filter-chip--on' : ''}}" data-f="ended" bindtap="setFilter">已結束 {{counts.ended}}</view>
+      </view>
+    </view>
 
-  <view class="item" wx:for="{{list}}" wx:key="SurveyId" data-id="{{item.SurveyId}}" bindtap="open" hover-class="item-hover">
+    <view wx:if="{{!list.length}}" class="card card--overlap empty">
+      <view class="empty-glyph">◍</view>還沒有問卷，點右下角 ＋ 建立
+    </view>
+    <view wx:elif="{{!filtered.length}}" class="card empty">
+      <view class="empty-glyph">◍</view>沒有符合的問卷
+      <view class="btn-group" style="max-width:340rpx;margin:24rpx auto 0">
+        <button class="btn btn-ghost btn-sm" hover-class="btn-hover" bindtap="clearAllFilter">清除篩選</button>
+      </view>
+    </view>
+
+    <view class="item" wx:for="{{visibleList}}" wx:key="SurveyId" data-id="{{item.SurveyId}}" bindtap="open" hover-class="item-hover">
     <view class="row">
       <view class="i-title">{{item.Title}}</view>
-      <view class="tag {{item.IsClosed ? 'tag-end' : 'tag-live'}}">
-        <text class="dot {{item.IsClosed ? 'dot-end' : 'dot-live'}}"></text>{{item.IsClosed ? '已結束' : '進行中'}}
+      <view class="tag {{item.IsClosed || item.isExpired ? 'tag-end' : 'tag-live'}}">
+        <text class="dot {{item.IsClosed || item.isExpired ? 'dot-end' : 'dot-live'}}"></text>{{item.IsClosed ? '已結束' : (item.isExpired ? '已截止' : '進行中')}}
       </view>
     </view>
 
     <view class="i-meta">{{item.GroupName || '未填群名'}}｜{{item.BindMode === 'group' ? (item.OpenGId ? '已綁定群' : '待綁定') : '開放作答'}}</view>
+    <view class="i-deadline" wx:if="{{item.deadlineText}}">截止 {{item.deadlineText}}</view>
 
     <view class="i-stats">
       <view class="i-stat">
@@ -44,6 +65,8 @@
       </view>
     </view>
   </view>
+    <view class="load-more" wx:if="{{filtered.length > visibleCount}}" hover-class="btn-hover" bindtap="loadMore">載入更多（還有 {{filtered.length - visibleCount}} 份）</view>
+  </block>
 
   <view class="purge-zone" wx:if="{{!loading && list.length}}">
     <button class="btn btn-quiet btn-sm" hover-class="btn-hover" bindtap="purgeOld">清理 365 天前的舊答卷</button>

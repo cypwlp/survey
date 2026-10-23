@@ -19,6 +19,9 @@ Page({
     savedList: [],
     announcement: '',
     bindMode: 'group',
+    nameMode: 'optional',
+    deadlineDate: '',
+    today: '',
     questions: [],
     typeLabels: ['填充題', '單選題', '日期選擇'],
     submitting: false,
@@ -26,7 +29,9 @@ Page({
 
   onLoad() {
     this.seq = 0;
+    const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
     this.setData({
+      today,
       questions: DEFAULT_QUESTIONS.map((q) => ({
         ...q,
         uid: 'd' + (++this.seq),
@@ -53,6 +58,20 @@ Page({
   onGroupInput(e) { this.setData({ groupInput: e.detail.value }); },
   onAnnouncement(e) { this.setData({ announcement: e.detail.value }); },
   setBindMode(e) { this.setData({ bindMode: e.currentTarget.dataset.mode }); },
+  setNameMode(e) { this.setData({ nameMode: e.currentTarget.dataset.mode }); },
+  onDeadline(e) { this.setData({ deadlineDate: e.detail.value }); },
+  clearDeadline() { this.setData({ deadlineDate: '' }); },
+
+  // 群名通常直接從群聊天複製，貼上比自己打快；只取第一行、最多 100 字
+  pasteGroupName() {
+    wx.getClipboardData({
+      success: (res) => {
+        const text = (res.data || '').trim().split(/\r?\n/)[0].slice(0, 100);
+        if (!text) return wx.showToast({ title: '剪貼簿是空的', icon: 'none' });
+        this.setData({ groupInput: text });
+      },
+    });
+  },
 
   // 「以前輸入過的群名」清單要帶著已選狀態，才能常駐多選
   syncSaved() {
@@ -182,6 +201,15 @@ Page({
 
   async submit() {
     const questions = this.buildQuestions();
+    // 微信不提供成員暱稱，需要知道是誰交的就加一題姓名（走一般題目，匯出／統計都自動帶上）
+    if (this.data.nameMode !== 'none' && !questions.some((q) => q.k === 'name')) {
+      questions.unshift({
+        k: 'name',
+        type: 'text',
+        title: '你的姓名／稱呼',
+        required: this.data.nameMode === 'required',
+      });
+    }
     const err = this.validate(questions);
     if (err) return wx.showToast({ title: err, icon: 'none' });
 
@@ -192,6 +220,9 @@ Page({
         groupName: this.data.groupNames.join('／'),
         bindMode: this.data.bindMode,
         announcement: this.data.announcement,
+        deadline: this.data.deadlineDate
+          ? new Date(this.data.deadlineDate + 'T23:59:59+08:00').toISOString()
+          : null,
         questions,
       });
       wx.showToast({ title: '已建立', icon: 'success' });

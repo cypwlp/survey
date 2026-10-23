@@ -17,6 +17,21 @@
   margin-top: 10rpx;
 }
 
+.head-progress {
+  height: 8rpx;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999rpx;
+  margin-top: 22rpx;
+  overflow: hidden;
+}
+
+.head-progress-bar {
+  height: 100%;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.92);
+  transition: width 0.25s ease;
+}
+
 .head .card:first-of-type { margin-top: 0; }
 
 .wrap > .card:first-child,
@@ -140,4 +155,17 @@
   background: #f6f8fc;
   border-radius: var(--r-md);
   padding: 22rpx;
+}
+
+/* 長表單：提交按鈕固定在底部，避免要滑到底才能交 */
+.wrap { padding-bottom: 280rpx; }
+
+.submit-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  background: linear-gradient(180deg, rgba(244, 246, 251, 0) 0%, rgba(244, 246, 251, 0.96) 26%, #f4f6fb 100%);
+  padding: 24rpx 28rpx calc(30rpx + env(safe-area-inset-bottom));
 }

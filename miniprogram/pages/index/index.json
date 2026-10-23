@@ -1,3 +1,4 @@
 {
-  "navigationBarTitleText": "群公告問卷"
+  "navigationBarTitleText": "群公告問卷",
+  "enablePullDownRefresh": true
 }

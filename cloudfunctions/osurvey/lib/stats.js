@@ -135,6 +135,7 @@ async function buildXlsx(survey, answers, visitCount) {
   kv('問卷標題', survey.Title);
   kv('群名稱', survey.GroupName || '（未填）');
   kv('作答範圍', survey.BindMode === 'group' ? '綁定群組（已綁定）' : '開放作答');
+  kv('截止時間', survey.Deadline ? localTime(survey.Deadline) : '（未設定）');
   kv('開啟人數', visitCount);
   kv('提交份數', answers.length);
   kv('提交/開啟', visitCount ? Math.round((answers.length / visitCount) * 100) + '%' : '—');

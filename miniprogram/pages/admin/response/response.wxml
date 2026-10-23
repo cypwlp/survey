@@ -1,0 +1,25 @@
+<view class="head">
+  <view class="head-inner">
+    <view class="head-eyebrow">單份答卷</view>
+    <view class="head-title">{{title}}</view>
+    <view class="head-sub" wx:if="{{row}}">提交時間：{{timeText}}｜{{row.openid}}</view>
+  </view>
+</view>
+
+<view class="wrap">
+  <view wx:if="{{error}}" class="card card--overlap"><view class="err-box">{{error}}</view></view>
+
+  <block wx:else>
+    <view class="card card--overlap" wx:for="{{items}}" wx:key="no">
+      <view class="q-head">
+        <view class="q-no">{{item.no}}</view>
+        <view class="q-title">{{item.title}}</view>
+      </view>
+      <view class="answer-box {{item.filled ? '' : 'answer-empty'}}">{{item.value}}</view>
+    </view>
+
+    <view class="submit-bar">
+      <button class="btn btn-ghost" hover-class="btn-hover" bindtap="back">返回答卷列表</button>
+    </view>
+  </block>
+</view>

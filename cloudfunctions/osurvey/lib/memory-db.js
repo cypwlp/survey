@@ -25,14 +25,15 @@ function memoryDriver() {
   const now = () => new Date().toISOString();
 
   return {
-    async createSurvey({ title, groupName, bindMode, announcement, questionsJson, creatorOpenId, surveyId }) {
+    async createSurvey({ title, groupName, bindMode, announcement, questionsJson, creatorOpenId, surveyId, deadline }) {
       const id = Number(surveyId) || ++seqSurvey;
       if (surveys.has(id)) throw duplicateError('問卷編號已存在');
       seqSurvey = Math.max(seqSurvey, id);
       surveys.set(id, {
         SurveyId: id, Title: title, GroupName: groupName || null, OpenGId: null,
         BindMode: bindMode, Announcement: announcement || null, QuestionsJson: questionsJson,
-        CreatorOpenId: creatorOpenId, IsClosed: false, CreateTime: now(), UpdateTime: now(),
+        CreatorOpenId: creatorOpenId, IsClosed: false, Deadline: deadline || null,
+        CreateTime: now(), UpdateTime: now(),
       });
       return id;
     },
@@ -44,7 +45,7 @@ function memoryDriver() {
         surveys.set(id, {
           SurveyId: id, Title: s.Title, GroupName: s.GroupName || null, OpenGId: null,
           BindMode: s.BindMode, Announcement: s.Announcement || null, QuestionsJson: s.QuestionsJson,
-          CreatorOpenId: s.CreatorOpenId, IsClosed: !!s.IsClosed,
+          CreatorOpenId: s.CreatorOpenId, IsClosed: !!s.IsClosed, Deadline: s.Deadline || null,
           CreateTime: s.CreateTime || now(), UpdateTime: s.UpdateTime || now(),
         });
         seqSurvey = Math.max(seqSurvey, id);
@@ -101,12 +102,20 @@ function memoryDriver() {
           ...s,
           AnswerCount: answers.filter((a) => a.SurveyId === s.SurveyId).length,
           VisitCount: visits.filter((v) => v.SurveyId === s.SurveyId).length,
+          IsExpired: !!(s.Deadline && Date.parse(s.Deadline) <= Date.now()),
         }));
     },
     async setClosed(id, closed) {
       const s = surveys.get(Number(id));
       if (!s) return false;
       s.IsClosed = !!closed;
+      s.UpdateTime = now();
+      return true;
+    },
+    async setDeadline(id, deadline) {
+      const s = surveys.get(Number(id));
+      if (!s) return false;
+      s.Deadline = deadline || null;
       s.UpdateTime = now();
       return true;
     },

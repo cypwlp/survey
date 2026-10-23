@@ -19,11 +19,14 @@ function check(name, cond, extra) {
 const db = memoryDriver();
 // 假的小程序碼生成器：真的那條走雲調用（cloud.openapi.wxacode.getUnlimited），本機測試只驗參數傳遞。
 const fakeWxacode = async ({ page, scene, envVersion }) => Buffer.from(`PNG:${page}|${scene}|${envVersion}`);
+// 假的内容安全检测：只把 BADWORD 判成 risky，用来验证路由有没有把用户输入送检
+const fakeCheckContent = async ({ content }) => ({ ok: !String(content).includes('BADWORD'), suggest: 'pass' });
 const router = createRouter({
   db,
   resolveOpenData: async (v) => (v && v.data) || null,
   allowDevGid: true,
   genWxacode: fakeWxacode,
+  checkContent: fakeCheckContent,
   log: () => {},
 });
 
@@ -270,6 +273,34 @@ async function main() {
   check('詳情回報 bindMode=open', r.data.bindMode === 'open', r.data.bindMode);
   r = await call(A, 'POST', `/surveys/${modeId}/bindmode`, { bindMode: 'group' });
   check('切回「綁定群組」', r.statusCode === 200 && r.data.bindMode === 'group', r.data);
+
+  console.log('\n[14] 內容安全、截止時間、答卷明細');
+  r = await call(A, 'POST', '/surveys', { title: 'BADWORD 測試', questions: defaultQuestions() });
+  check('標題含不當詞 → 400', r.statusCode === 400, r.data);
+  r = await call(A, 'POST', '/surveys', { title: '截止測試', questions: defaultQuestions(), bindMode: 'open', deadline: new Date(Date.now() - 60000).toISOString() });
+  const expiredId = r.data.surveyId;
+  check('建立一份已過截止時間的問卷', r.statusCode === 200 && !!expiredId, r.data);
+  r = await call(C, 'GET', `/surveys/${expiredId}`, {});
+  check('詳情回報 isExpired=true', r.statusCode === 200 && r.data.isExpired === true, r.data && r.data.isExpired);
+  r = await call(C, 'POST', `/surveys/${expiredId}/answer`, { answers });
+  check('截止後提交 → 409', r.statusCode === 409, r.data);
+  r = await call(A, 'POST', `/surveys/${expiredId}/deadline`, { deadline: null });
+  check('建立者可以清除截止時間', r.statusCode === 200 && r.data.deadline === null, r.data);
+  r = await call(C, 'POST', `/surveys/${expiredId}/answer`, { answers });
+  check('清除截止後可以正常提交', r.statusCode === 200, r.data);
+
+  r = await call(A, 'POST', '/surveys', { title: '答案內容安全', questions: defaultQuestions(), bindMode: 'open' });
+  const safeId = r.data.surveyId;
+  const badAnswers = answers.map((a) => (a.k === 'what' ? { k: a.k, value: 'BADWORD' } : a));
+  r = await call(C, 'POST', `/surveys/${safeId}/answer`, { answers: badAnswers });
+  check('答案含不當詞 → 400', r.statusCode === 400, r.data);
+
+  r = await call(A, 'GET', `/surveys/${surveyId}/responses`, {});
+  check('答卷明細：openid 已打碼且帶答案', r.statusCode === 200 && r.data.count >= 1 && r.data.list[0].openid.includes('****') && Array.isArray(r.data.list[0].answers), r.data);
+  r = await call(B, 'GET', `/surveys/${surveyId}/responses`, {});
+  check('非建立者看答卷明細 → 403', r.statusCode === 403, r.data);
+  r = await call(A, 'GET', `/surveys/${surveyId}/stats`, {});
+  check('統計回傳近 7 天趨勢', r.statusCode === 200 && Array.isArray(r.data.daily) && r.data.daily.length === 7, r.data && r.data.daily);
 
   console.log(`\n${fail ? '✗ 失敗 ' + fail + ' 項 / ' : ''}通過 ${pass} 項`);
   if (fail) process.exit(1);

@@ -1,5 +1,107 @@
 .card--overlap { margin-top: -64rpx; }
 
+/* 分享與管理區 */
+
+.btn-share { margin-top: 24rpx; }
+
+.quick-row {
+  display: flex;
+  gap: 18rpx;
+  margin-top: 22rpx;
+}
+
+.quick {
+  flex: 1;
+  background: #f7f9fd;
+  border-radius: var(--r-md);
+  padding: 20rpx 8rpx 18rpx;
+  text-align: center;
+  transition: opacity 0.15s ease;
+}
+
+.quick-hover { opacity: 0.62; }
+
+.quick-ico {
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  margin: 0 auto 10rpx;
+  border-radius: 18rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #fff;
+}
+
+.quick-ico--a { background: linear-gradient(135deg, #0ea5e9, #6366f1); }
+.quick-ico--b { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+.quick-ico--c { background: linear-gradient(135deg, #64748b, #94a3b8); }
+
+.quick-t {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #334155;
+}
+
+.menu { margin-top: 6rpx; }
+
+.menu-picker { display: block; }
+
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-top: 2rpx solid var(--line);
+}
+
+.menu-row:first-child {
+  border-top: none;
+  padding-top: 8rpx;
+}
+
+.menu-hover { opacity: 0.6; }
+
+.menu-main { flex: 1; }
+
+.menu-t {
+  font-size: 29rpx;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.menu-d {
+  font-size: 23rpx;
+  color: var(--faint);
+  margin-top: 4rpx;
+}
+
+.menu-side {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.menu-arrow {
+  font-size: 42rpx;
+  color: #cbd5e1;
+  line-height: 1;
+}
+
+.menu-row--danger .menu-t { color: var(--danger); }
+.menu-row--danger .menu-d { color: #f0a3a3; }
+
+.link-btn {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--primary);
+  padding: 4rpx 0;
+}
+
+.announce--clamp {
+  max-height: 240rpx;
+  overflow: hidden;
+}
+
 .head .tag { background: rgba(255, 255, 255, 0.18); color: #fff; }
 .head .dot-live { background: #6ee7b7; }
 .head .dot-end { background: rgba(255, 255, 255, 0.6); }
@@ -265,4 +367,9 @@
   font-size: 24rpx;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.qr-save {
+  width: 100%;
+  margin-top: 4rpx;
 }
