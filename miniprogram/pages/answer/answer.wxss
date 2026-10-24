@@ -34,8 +34,10 @@
 
 .head .card:first-of-type { margin-top: 0; }
 
-.wrap > .card:first-child,
-.wrap > .notice:first-child { margin-top: -56rpx; }
+.wrap > .card:first-child { margin-top: -56rpx; }
+
+/* 提示條不要壓在紫色頁首上：深綠字在紫底上幾乎看不清 */
+.wrap > .notice:first-child { margin-top: 24rpx; }
 
 .notice { margin-bottom: 24rpx; }
 

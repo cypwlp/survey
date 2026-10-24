@@ -77,7 +77,7 @@ Page({
         const r = await api.post(`/surveys/${sid}/shareresolve`, payload);
         const note = r.dev
           ? '開發模式：使用設定的測試群 ID（非真實群）'
-          : `${r.justAdded ? '已識別本群並加入問卷' : '本群已在問卷的群清單中'}｜目前共 ${r.groupCount} 個群`;
+          : `${r.justAdded ? '已識別本群並加入問卷' : '已識別本群'}｜共 ${r.groupCount} 個群`;
         return { payload, openGId: r.openGId, note, warning: '' };
       } catch (e) {
         lastError = e.message;
