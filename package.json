@@ -1,0 +1,12 @@
+{
+  "name": "survey-cloudrun",
+  "version": "1.0.0",
+  "private": true,
+  "main": "cloudrun/server.js",
+  "scripts": {
+    "start": "node cloudrun/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

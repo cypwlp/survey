@@ -1,10 +1,12 @@
-# 建置映像時不要進去的東西（雲托管從 GitHub 拉代碼時會照這份過濾）
-**/node_modules
-miniprogram
-deploy
-tools
-database
 .git
-**/.env
-**/.env.*
-**/*.log
+node_modules
+miniprogram
+cloudfunctions
+server
+tools
+deploy
+*.png
+*.jpg
+*.jpeg
+.patchtest.txt
+.tmp-*

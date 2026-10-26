@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>小威問卷 · Web 連線測試</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: linear-gradient(140deg, #4f46e5, #7c3aed 55%, #9333ea);
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: #0f172a;
+    }
+    main {
+      width: min(560px, 100%);
+      background: #fff;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, .28);
+    }
+    h1 { margin: 0 0 6px; font-size: 22px; }
+    .sub { margin: 0 0 20px; color: #64748b; font-size: 13px; line-height: 1.6; }
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 999px;
+      padding: 14px 18px;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .6; cursor: default; }
+    pre {
+      margin: 18px 0 0;
+      padding: 16px;
+      border-radius: 14px;
+      background: #f6f8fc;
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 80px;
+    }
+    .ok { color: #047857; }
+    .err { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Web ↔ 雲開發 連線測試</h1>
+    <p class="sub">
+      雲托管代理呼叫同一個雲函數 <b>osurvey</b>，<br>
+      成功就代表網頁和小程序共用同一套數據。
+    </p>
+    <button id="run">開始測試</button>
+    <pre id="out">尚未測試</pre>
+  </main>
+
+  <script>
+    const out = document.getElementById('out');
+    const btn = document.getElementById('run');
+
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      out.className = '';
+      out.textContent = '初始化中…';
+      try {
+        const res = await fetch('/api/health', { headers: { Accept: 'application/json' } });
+        const health = await res.json();
+        if (!res.ok) throw new Error(health.error || ('HTTP ' + res.status));
+        out.className = 'ok';
+        out.textContent = '✅ 連線成功\n\n' + JSON.stringify(health, null, 2);
+      } catch (e) {
+        out.className = 'err';
+        out.textContent = '❌ 失敗\n\n' + (e && (e.message || e.errMsg || JSON.stringify(e)));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
