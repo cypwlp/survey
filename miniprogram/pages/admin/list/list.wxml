@@ -45,7 +45,7 @@
       </view>
     </view>
 
-    <view class="i-meta">{{item.GroupName || '未填群名'}}｜{{item.BindMode === 'group' ? (item.OpenGId ? '已綁定群' : '待綁定') : '開放作答'}}</view>
+    <view class="i-meta">{{item.GroupName || '未設定群名'}}｜{{item.BindMode === 'group' ? (item.OpenGId ? '已綁定群' : '待綁定') : '開放作答'}}</view>
     <view class="i-deadline" wx:if="{{item.deadlineText}}">截止 {{item.deadlineText}}</view>
 
     <view class="i-stats">

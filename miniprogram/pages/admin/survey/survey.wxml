@@ -7,7 +7,7 @@
       </view>
     </view>
     <view class="head-title">{{survey.title}}</view>
-    <view class="head-sub" wx:if="{{survey}}">{{survey.groupName || '未填群名'}}｜{{survey.bindMode === 'group' ? (survey.hasGroupBound ? '已有 ' + survey.groups.length + ' 個群加入' : '還沒有人從群裡進來') : '開放作答'}}</view>
+    <view class="head-sub" wx:if="{{survey}}">{{survey.groupName || '未設定群名'}}｜{{survey.bindMode === 'group' ? (survey.hasGroupBound ? '已有 ' + survey.groups.length + ' 個群加入' : '還沒有人從群裡進來') : '開放作答'}}</view>
     <view class="head-sub" wx:if="{{survey && deadlineText}}">截止：{{deadlineText}}{{survey.isExpired ? '（已截止）' : ''}}</view>
   </view>
 </view>

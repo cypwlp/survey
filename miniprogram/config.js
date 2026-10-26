@@ -12,7 +12,8 @@
 //
 // 開發者工具勾「不校驗合法域名」時，C 的 API_BASE 也可以直接填本機位址。
 module.exports = {
-  API_BASE: 'https://interior.topmix.net/Info/System/SoftWare/ODSurvey/api',
+  // 自架版才需要填；目前走雲開發（CLOUD_FUNCTION），留空即可。
+  API_BASE: '',
 
   // ── A. 微信雲開發（目前採用的方案）──
   CLOUD_ENV: 'cloud1-d2g83jh3td8664c67',  // 雲開發控制台右上角的環境 ID

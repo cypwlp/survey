@@ -52,7 +52,7 @@
     <view class="recent" wx:if="{{recent}}" hover-class="act-hover" bindtap="goRecent">
       <view class="recent-body">
         <view class="recent-t">{{recent.title}}</view>
-        <view class="faint">{{recent.groupName || '未填群名'}} · {{recent.isClosed ? '已結束' : '進行中'}}</view>
+        <view class="faint">{{recent.groupName || '未設定群名'}} · {{recent.isClosed ? '已結束' : '進行中'}}</view>
       </view>
       <view class="act-arrow">›</view>
     </view>
