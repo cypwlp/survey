@@ -111,6 +111,20 @@ Page({
     this.syncSaved();
   },
 
+  async deleteSaved(e) {
+    const name = e.currentTarget.dataset.name;
+    const savedGroups = this.data.savedGroups.filter((g) => g !== name);
+    const groupNames = this.data.groupNames.filter((g) => g !== name);
+    wx.setStorageSync('groupHistory', savedGroups);
+    this.setData({ savedGroups, groupNames });
+    this.syncSaved();
+    try {
+      await api.post('/groupnames/delete', { names: [name] });
+    } catch (err) {
+      // 本地已清掉，雲端同步失敗不擋建立流程
+    }
+  },
+
   pasteAnnouncement() {
     wx.getClipboardData({
       success: (res) => {

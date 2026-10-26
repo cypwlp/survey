@@ -255,6 +255,19 @@ function cloudDriver(cloud, { log = () => {} } = {}) {
       return findAll('group_name', { OpenId: openid }, { order: ['LastUsedAt', 'desc'], limit });
     },
 
+    async deleteGroupNames(openid, names) {
+      const list = (Array.isArray(names) ? names : [names])
+        .map((n) => String(n || '').trim().slice(0, 100))
+        .filter(Boolean);
+      let removed = 0;
+      for (const name of list) {
+        const id = `n_${shortHash(openid)}_${shortHash(name)}`;
+        const res = await db.collection('group_name').where({ _id: id, OpenId: openid }).remove();
+        removed += (res.stats && res.stats.removed) || 0;
+      }
+      return removed;
+    },
+
     async getAnswer(surveyId, openid) {
       return findOne('answer', { _id: `${Number(surveyId)}_${openid}` });
     },

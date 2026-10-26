@@ -188,6 +188,19 @@ function memoryDriver() {
         .slice(0, limit)
         .map((g) => ({ ...g }));
     },
+    async deleteGroupNames(openid, names) {
+      const list = (Array.isArray(names) ? names : [names])
+        .map((n) => String(n || '').trim().slice(0, 100))
+        .filter(Boolean);
+      let removed = 0;
+      for (let i = groupNames.length - 1; i >= 0; i--) {
+        if (groupNames[i].OpenId === openid && list.includes(groupNames[i].Name)) {
+          groupNames.splice(i, 1);
+          removed += 1;
+        }
+      }
+      return removed;
+    },
     async getAnswer(surveyId, openid) {
       const a = answers.find((x) => x.SurveyId === Number(surveyId) && x.OpenId === openid);
       return a ? { ...a } : null;

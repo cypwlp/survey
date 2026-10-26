@@ -142,6 +142,13 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
     });
   }
 
+  async function removeGroupNames(params, req) {
+    const names = Array.isArray(req.data && req.data.names) ? req.data.names : [];
+    const removed = await db.deleteGroupNames(req.openid, names);
+    const rows = await db.listGroupNames(req.openid);
+    return ok({ removed, names: rows.map((r) => r.Name) });
+  }
+
   async function getSurvey(params, req) {
     const id = Number(params[0]);
     const survey = await db.getSurvey(id);
@@ -423,6 +430,7 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
     ['GET', /^\/surveys$/, listSurveys],
     ['GET', /^\/groupnames$/, listGroupNames],
     ['POST', /^\/groupnames$/, saveGroupNames],
+    ['POST', /^\/groupnames\/delete$/, removeGroupNames],
     ['GET', /^\/surveys\/(\d+)$/, getSurvey],
     ['POST', /^\/surveys\/(\d+)\/close$/, closeSurvey],
     ['POST', /^\/surveys\/(\d+)\/deadline$/, setSurveyDeadline],

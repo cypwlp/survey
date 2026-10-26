@@ -21,14 +21,17 @@
       </view>
     </view>
     <view class="row">
-      <input class="input" style="flex:1" value="{{groupInput}}" bindinput="onGroupInput" placeholder="例：生產部群" placeholder-class="ph" maxlength="100" confirm-type="完成" bindconfirm="addGroupName" />
+      <input class="input" style="flex:1" value="{{groupInput}}" bindinput="onGroupInput" placeholder="例：小夥伴群／家庭群" placeholder-class="ph" maxlength="100" confirm-type="完成" bindconfirm="addGroupName" />
       <view class="add-tag" hover-class="opt-hover" bindtap="addGroupName">加入</view>
     </view>
     <view class="inline-link" hover-class="opt-hover" bindtap="pasteGroupName">從剪貼簿貼上群名</view>
     <view class="saved" wx:if="{{savedList.length}}">
       <view class="label" style="margin-top:0">常用群名（點一下加入，再點取消）</view>
       <view class="tags">
-        <view class="g-tag {{item.on ? 'g-tag--on' : ''}}" hover-class="opt-hover" wx:for="{{savedList}}" wx:key="name" data-name="{{item.name}}" bindtap="toggleSaved">{{item.on ? '✓ ' : '＋ '}}{{item.name}}</view>
+        <view class="g-tag {{item.on ? 'g-tag--on' : ''}}" hover-class="opt-hover" wx:for="{{savedList}}" wx:key="name" data-name="{{item.name}}" bindtap="toggleSaved">
+          <text>{{item.on ? '✓ ' : '＋ '}}{{item.name}}</text>
+          <text class="g-del" data-name="{{item.name}}" catchtap="deleteSaved">✕</text>
+        </view>
       </view>
     </view>
     <view class="hint">選填。小程序讀不到微信群名（微信限制），這裡填寫的只是這份問卷的標識，用於列表顯示與匯出；常用群名會記在這台手機上。</view>

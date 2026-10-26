@@ -66,6 +66,10 @@ async function main() {
   check('群名清單讀得回來', r.statusCode === 200 && r.data.list.length === 2, r.data.list);
   r = await call(B, 'GET', '/groupnames');
   check('別人的群名清單是空的', r.data.list.length === 0, r.data.list);
+  r = await call(A, 'POST', '/groupnames', { names: ['臨時群'] });
+  check('新增臨時群名', r.statusCode === 200 && r.data.names.includes('臨時群'), r.data);
+  r = await call(A, 'POST', '/groupnames/delete', { names: ['臨時群'] });
+  check('刪除常用群名', r.statusCode === 200 && !r.data.names.includes('臨時群'), r.data);
 
   console.log('\n[3] 從群卡片進入（CloudID 路徑）');
   r = await call(B, 'POST', `/surveys/${surveyId}/shareresolve`, {}, { shareCloudId: { cloudID: 'cid1', data: { openGId: 'GID-A' } } });
