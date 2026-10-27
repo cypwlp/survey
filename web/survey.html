@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>問卷詳情 · 小威問卷</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html">小威問卷</a>
+      <nav class="nav">
+        <a href="index.html">我的問卷</a>
+        <a href="create.html">建立問卷</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero compact">
+    <div class="hero-inner">
+      <div class="hero-row">
+        <div>
+          <span class="eyebrow">問卷詳情</span>
+          <h1 id="title">載入中…</h1>
+          <p id="sub"></p>
+        </div>
+        <span id="statusTag" class="tag tag-end">…</span>
+      </div>
+    </div>
+  </section>
+
+  <main class="wrap overlap">
+    <div id="loading" class="card empty">載入中…</div>
+    <div id="error" class="card hidden"><div class="notice notice-err" id="errorMsg"></div></div>
+
+    <div id="content" class="hidden">
+      <section class="card">
+        <h2 class="sec-title">分享問卷</h2>
+        <div class="share-link">
+          <input id="shareLink" class="input" readonly>
+          <button id="copyBtn" class="btn btn-primary btn-sm" type="button">複製連結</button>
+        </div>
+        <div class="btn-row">
+          <a id="openAnswer" class="btn btn-ghost btn-sm" target="_blank" rel="noopener">打開作答頁</a>
+          <a id="statsLink" class="btn btn-quiet btn-sm">查看統計</a>
+        </div>
+        <div class="qr-box" style="margin-top:18px">
+          <img id="qrImg" alt="問卷二維碼">
+          <div>
+            <div class="muted">手機掃碼直接作答</div>
+            <div class="hint">把連結貼到微信群，或把二維碼發給朋友。</div>
+          </div>
+        </div>
+        <div id="groupWarning" class="notice notice-warn hidden" style="margin-top:16px">
+          這份問卷目前是「綁定群組」模式：網頁連結／二維碼進來的人不能提交，請改成「開放作答」。
+        </div>
+        <div class="btn-row hidden" id="groupFixRow">
+          <button id="toOpenBtn" class="btn btn-primary btn-sm" type="button">改為開放作答</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="sec-title">問卷管理</h2>
+        <div class="menu">
+          <div class="menu-row" id="closeRow">
+            <div class="menu-main"><div class="menu-title" id="closeTitle">結束問卷</div><div class="menu-desc" id="closeDesc">停止接收新答案</div></div>
+            <div class="menu-arrow">›</div>
+          </div>
+          <div class="menu-row" id="modeRow">
+            <div class="menu-main"><div class="menu-title">作答範圍</div><div class="menu-desc" id="modeDesc"></div></div>
+            <span id="modeTag" class="tag tag-info"></span>
+            <div class="menu-arrow">›</div>
+          </div>
+          <div class="menu-row menu-danger" id="deleteRow">
+            <div class="menu-main"><div class="menu-title">刪除問卷</div><div class="menu-desc">連同答卷、開啟記錄、群綁定一起刪除</div></div>
+            <div class="menu-arrow">›</div>
+          </div>
+        </div>
+
+        <label class="label" for="deadlineInput">截止時間</label>
+        <input id="deadlineInput" class="input" type="date">
+        <div class="btn-row">
+          <button id="saveDeadline" class="btn btn-ghost btn-sm" type="button">保存截止時間</button>
+          <button id="clearDeadline" class="btn btn-quiet btn-sm" type="button">清除</button>
+        </div>
+        <div class="hint" id="deadlineHint"></div>
+      </section>
+
+      <section class="card" id="announcementCard">
+        <h2 class="sec-title">公告內容</h2>
+        <div id="announcement" class="muted" style="white-space:pre-wrap;word-break:break-word"></div>
+      </section>
+
+      <section class="card">
+        <h2 class="sec-title">題目（<span id="qCount"></span>）</h2>
+        <div id="questionList"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="js/api.js"></script>
+  <script>
+    (function () {
+      if (!Survey.requireAdmin()) return;
+      const id = new URLSearchParams(location.search).get('id');
+      if (!id) { location.href = 'index.html'; return; }
+
+      let survey = null;
+      let shareUrl = location.origin + '/answer.html?sid=' + encodeURIComponent(id);
+
+      const $ = (s) => document.querySelector(s);
+      const content = $('#content');
+      const loading = $('#loading');
+      const errorBox = $('#error');
+
+      function fail(msg) {
+        loading.classList.add('hidden');
+        content.classList.add('hidden');
+        errorBox.classList.remove('hidden');
+        $('#errorMsg').textContent = msg;
+      }
+
+      function toast(msg, err) { Survey.toast(msg, err); }
+
+      function statusOf(s) {
+        if (s.isClosed) return { text: '已結束', cls: 'tag-end' };
+        if (s.isExpired) return { text: '已截止', cls: 'tag-end' };
+        return { text: '進行中', cls: 'tag-live' };
+      }
+
+      function deadlineDate(iso) {
+        if (!iso) return '';
+        const t = Date.parse(iso);
+        if (isNaN(t)) return '';
+        return new Date(t + 8 * 3600 * 1000).toISOString().slice(0, 10);
+      }
+
+      function render(s) {
+        survey = s;
+        loading.classList.add('hidden');
+        errorBox.classList.add('hidden');
+        content.classList.remove('hidden');
+
+        const st = statusOf(s);
+        $('#title').textContent = s.title;
+        const group = s.groupName || '未設定群名';
+        const mode = s.bindMode === 'group' ? '綁定群組' : '開放作答';
+        $('#sub').textContent = group + '｜' + mode + (s.bindMode === 'group' ? '｜已加入 ' + (s.groups || []).length + ' 個群' : '');
+        const tag = $('#statusTag');
+        tag.className = 'tag ' + st.cls;
+        tag.textContent = st.text;
+
+        $('#shareLink').value = shareUrl;
+        $('#openAnswer').href = shareUrl;
+        $('#statsLink').href = 'stats.html?id=' + encodeURIComponent(id);
+        $('#qrImg').src = '/api/qr?text=' + encodeURIComponent(shareUrl);
+
+        const isGroup = s.bindMode === 'group';
+        $('#groupWarning').classList.toggle('hidden', !isGroup);
+        $('#groupFixRow').classList.toggle('hidden', !isGroup);
+
+        $('#closeTitle').textContent = s.isClosed ? '重新開放問卷' : '結束問卷';
+        $('#closeDesc').textContent = s.isClosed ? '讓成員可以繼續提交' : '停止接收新答案';
+        $('#modeDesc').textContent = isGroup ? '綁定群組：需從群卡片進入' : '開放作答：掃碼、轉發都能答';
+        $('#modeTag').textContent = isGroup ? '綁定群組' : '開放作答';
+
+        $('#deadlineInput').value = deadlineDate(s.deadline);
+      $('#deadlineInput').min = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+        $('#deadlineHint').textContent = s.deadline
+          ? '目前截止：' + Survey.fmtTime(s.deadline, true) + (s.isExpired ? '（已截止）' : '')
+          : '未設定截止時間（手動結束）。到期當天 23:59（+8）自動停收。';
+
+        const ann = s.announcement || '';
+        $('#announcementCard').classList.toggle('hidden', !ann);
+        $('#announcement').textContent = ann;
+
+        const qs = s.questions || [];
+        $('#qCount').textContent = qs.length;
+        $('#questionList').innerHTML = qs.map((q, i) => {
+          const type = q.type === 'choice' ? '單選' : (q.type === 'date' ? '日期' : '填充');
+          const opts = q.type === 'choice' && q.options ? '<div class="hint">選項：' + Survey.esc(q.options.join('，')) + '</div>' : '';
+          return `
+            <div class="q-card">
+              <div class="q-head">
+                <span class="q-no">${i + 1}</span>
+                <div class="q-tools"><span class="tag tag-info">${type}</span><span class="tag ${q.required ? 'tag-warn' : 'tag-end'}">${q.required ? '必填' : '選填'}</span></div>
+              </div>
+              <div style="font-weight:650;margin-top:10px">${Survey.esc(q.title)}</div>
+              ${opts}
+              <div class="faint" style="margin-top:6px">key：${Survey.esc(q.k)}</div>
+            </div>`;
+        }).join('');
+      }
+
+      async function load() {
+        loading.classList.remove('hidden');
+        errorBox.classList.add('hidden');
+        content.classList.add('hidden');
+        try {
+          const s = await Survey.apiAdmin('/surveys/' + encodeURIComponent(id));
+          render(s);
+        } catch (e) {
+          if (e.status === 401) {
+            Survey.clearAdminPassword();
+            location.href = 'index.html';
+            return;
+          }
+          fail(e.message || '載入失敗');
+        }
+      }
+
+      async function post(path, data) {
+        try {
+          return await Survey.apiAdmin(path, 'POST', data);
+        } catch (e) {
+          if (e.status === 401) {
+            Survey.clearAdminPassword();
+            location.href = 'index.html';
+            throw e;
+          }
+          throw e;
+        }
+      }
+
+      $('#copyBtn').addEventListener('click', async () => {
+        const input = $('#shareLink');
+        try {
+          await navigator.clipboard.writeText(input.value);
+          toast('已複製分享連結');
+        } catch (e) {
+          input.select();
+          document.execCommand('copy');
+          toast('已複製分享連結');
+        }
+      });
+
+      $('#closeRow').addEventListener('click', async () => {
+        const toClose = !survey.isClosed;
+        if (!confirm(toClose ? '結束後成員將無法再提交，確定嗎？' : '重新開放後成員可繼續作答，確定嗎？')) return;
+        try {
+          await post('/surveys/' + id + '/close', { closed: toClose });
+          toast(toClose ? '已結束問卷' : '已重新開放');
+          load();
+        } catch (e) { toast(e.message, true); }
+      });
+
+      $('#modeRow').addEventListener('click', async () => {
+        const toOpen = survey.bindMode === 'group';
+        if (!confirm(toOpen ? '改成「開放作答」後，拿到連結的人都能提交。確定嗎？' : '改成「綁定群組」後，必須從微信群卡片進入。確定嗎？')) return;
+        try {
+          await post('/surveys/' + id + '/bindmode', { bindMode: toOpen ? 'open' : 'group' });
+          toast(toOpen ? '已改為開放作答' : '已改為綁定群組');
+          load();
+        } catch (e) { toast(e.message, true); }
+      });
+
+      $('#toOpenBtn').addEventListener('click', async () => {
+        try {
+          await post('/surveys/' + id + '/bindmode', { bindMode: 'open' });
+          toast('已改為開放作答');
+          load();
+        } catch (e) { toast(e.message, true); }
+      });
+
+      $('#saveDeadline').addEventListener('click', async () => {
+        const date = $('#deadlineInput').value;
+        if (!date) { toast('請先選日期', true); return; }
+        if (!confirm(date + ' 23:59（+8）後自動停止收答案，確定嗎？')) return;
+        try {
+          await post('/surveys/' + id + '/deadline', { deadline: new Date(date + 'T23:59:59+08:00').toISOString() });
+          toast('已設定截止時間');
+          load();
+        } catch (e) { toast(e.message, true); }
+      });
+
+      $('#clearDeadline').addEventListener('click', async () => {
+        if (!confirm('清除後不會再自動停止收答案，確定嗎？')) return;
+        try {
+          await post('/surveys/' + id + '/deadline', { deadline: null });
+          toast('已清除截止時間');
+          load();
+        } catch (e) { toast(e.message, true); }
+      });
+
+      $('#deleteRow').addEventListener('click', async () => {
+        if (!confirm('會把這份問卷的答卷、開啟記錄、群綁定一起刪除，不可恢復。確定嗎？')) return;
+        try {
+          await post('/surveys/' + id + '/delete', {});
+          toast('已刪除');
+          setTimeout(() => { location.href = 'index.html'; }, 500);
+        } catch (e) { toast(e.message, true); }
+      });
+
+      load();
+    })();
+  </script>
+</body>
+</html>

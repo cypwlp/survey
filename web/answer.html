@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>填寫問卷 · 小威問卷</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand">小威問卷</span>
+    </div>
+  </header>
+
+  <section class="hero compact">
+    <div class="hero-inner">
+      <span class="eyebrow" id="statusEyebrow">填寫問卷</span>
+      <h1 id="title">載入中…</h1>
+      <p id="sub"></p>
+    </div>
+  </section>
+
+  <main class="wrap overlap">
+    <div id="loading" class="card empty">載入中…</div>
+    <div id="error" class="card hidden"><div class="notice notice-err" id="errorMsg"></div></div>
+    <div id="content" class="hidden"></div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="js/api.js"></script>
+  <script>
+    (function () {
+      const sid = new URLSearchParams(location.search).get('sid');
+      const $ = (s) => document.querySelector(s);
+      const content = $('#content');
+      const loading = $('#loading');
+      const errorBox = $('#error');
+      let survey = null;
+      let answers = {};
+
+      function toast(msg, err) { Survey.toast(msg, err); }
+
+      function fail(msg) {
+        loading.classList.add('hidden');
+        content.classList.add('hidden');
+        errorBox.classList.remove('hidden');
+        $('#errorMsg').textContent = msg;
+      }
+
+      function statusText(s) {
+        if (s.myAnswers) return '已提交';
+        if (s.isClosed) return '已結束';
+        if (s.isExpired) return '已截止';
+        return '進行中';
+      }
+
+      function statusTagClass(s) {
+        return s.myAnswers ? 'tag-info' : ((s.isClosed || s.isExpired) ? 'tag-end' : 'tag-live');
+      }
+
+      function answerMap(list) {
+        const m = {};
+        (list || []).forEach((a) => { m[a.k] = a.value; });
+        return m;
+      }
+
+      function esc(s) { return Survey.esc(s); }
+
+      function qType(q) {
+        if (q.type === 'choice') return '單選';
+        if (q.type === 'date') return '日期';
+        return '填充';
+      }
+
+      function announcementHtml(s) {
+        if (!s.announcement) return '';
+        return `<section class="card"><h2 class="sec-title">公告內容</h2><div style="white-space:pre-wrap;word-break:break-word;color:#334155">${esc(s.announcement)}</div></section>`;
+      }
+
+      function doneHtml(s) {
+        const map = answerMap(s.myAnswers);
+        const qs = s.questions || [];
+        return `
+          <section class="card" style="text-align:center;padding:34px 22px">
+            <div style="font-size:44px;line-height:1;margin-bottom:10px">🎉</div>
+            <h2 style="margin:0 0 6px">已提交，感謝配合！</h2>
+            <div class="muted">提交時間：${s.submitTime ? Survey.fmtTime(s.submitTime, true) : '—'}</div>
+            <div class="hint">一人限一份；同一瀏覽器不能重複提交。</div>
+            <div class="btn-row" style="justify-content:center">
+              <button class="btn btn-ghost btn-sm" id="copyLink" type="button">複製本頁連結</button>
+            </div>
+          </section>
+          ${qs.map((q, i) => `
+            <section class="card">
+              <div class="row" style="align-items:flex-start">
+                <h3 style="margin:0;font-size:15px;line-height:1.5;flex:1">${i + 1}. ${esc(q.title)}</h3>
+                <span class="tag tag-info">${qType(q)}</span>
+              </div>
+              <div style="margin-top:10px;background:#f6f8fc;border-radius:12px;padding:12px;white-space:pre-wrap;word-break:break-word">${esc(map[q.k] || '（未填）')}</div>
+            </section>`).join('')}`;
+      }
+
+      function closedHtml(s) {
+        return `<section class="card" style="text-align:center;padding:34px 22px">
+          <div style="font-size:40px;line-height:1;margin-bottom:10px">—</div>
+          <h2 style="margin:0 0 6px">${s.isExpired ? '此問卷已截止' : '此問卷已結束'}</h2>
+          <div class="muted">如需補答，請聯絡管理員。</div>
+        </section>${announcementHtml(s)}`;
+      }
+
+      function groupOnlyHtml(s) {
+        return `<section class="card">
+          <h2 class="sec-title">需要在微信群裡打開</h2>
+          <div class="notice notice-warn">這份問卷目前是「綁定群組」模式，必須從微信群分享卡片進入。網頁連結／二維碼不能提交，請管理員在問卷詳情改成「開放作答」。</div>
+        </section>${announcementHtml(s)}`;
+      }
+
+      function formHtml(s) {
+        const qs = s.questions || [];
+        const total = qs.length;
+        return `
+          ${announcementHtml(s)}
+          <section class="card">
+            <div class="row">
+              <h2 class="sec-title" style="margin:0">請填寫</h2>
+              <span class="faint" id="answeredText">已答 0/${total}</span>
+            </div>
+            <div class="progress"><div id="progressBar" style="width:0%"></div></div>
+            <div style="margin-top:16px">
+              ${qs.map((q, i) => `
+                <div class="answer-q" id="q-${esc(q.k)}">
+                  <div class="row" style="align-items:flex-start">
+                    <div class="q-title" style="flex:1;margin:0">${i + 1}. ${esc(q.title)}${q.required ? '<span style="color:#ef4444"> *</span>' : ''}</div>
+                    <span class="tag tag-info">${qType(q)}</span>
+                  </div>
+                  ${q.type === 'text'
+                    ? (q.k === 'name'
+                      ? `<input class="input" style="margin-top:12px" data-k="${esc(q.k)}" maxlength="50" value="${esc(answers[q.k] || '')}" placeholder="填寫你的姓名／稱呼">`
+                      : `<textarea class="textarea" style="margin-top:12px" data-k="${esc(q.k)}" maxlength="2000" placeholder="寫下你的理解或想法">${esc(answers[q.k] || '')}</textarea>`)
+                    : q.type === 'date'
+                      ? `<input class="input" style="margin-top:12px" type="date" data-k="${esc(q.k)}" value="${esc(answers[q.k] || '')}">`
+                      : `<div style="margin-top:6px">${(q.options || []).map((opt) => `
+                          <div class="opt ${answers[q.k] === opt ? 'on' : ''}" data-k="${esc(q.k)}" data-opt="${esc(opt)}">
+                            <span class="radio"></span><span>${esc(opt)}</span>
+                          </div>`).join('')}</div>`}
+                </div>`).join('')}
+            </div>
+          </section>
+          <div class="bottom-bar">
+            <button id="submitBtn" class="btn btn-primary btn-block" type="button">提交問卷</button>
+            <div class="hint" style="text-align:center">提交後無法修改；同一瀏覽器只能提交一次。</div>
+          </div>`;
+      }
+
+      function render(s) {
+        survey = s;
+        loading.classList.add('hidden');
+        errorBox.classList.add('hidden');
+        content.classList.remove('hidden');
+
+        $('#title').textContent = s.title || '問卷';
+        const group = s.groupName || '未設定群名';
+        $('#sub').textContent = group + '｜' + statusText(s);
+        const tag = $('#statusEyebrow');
+        tag.className = 'tag ' + statusTagClass(s);
+        tag.textContent = statusText(s);
+
+        if (s.myAnswers) {
+          content.innerHTML = doneHtml(s);
+          return;
+        }
+        if (s.isClosed || s.isExpired) {
+          content.innerHTML = closedHtml(s);
+          return;
+        }
+        if (s.bindMode === 'group') {
+          content.innerHTML = groupOnlyHtml(s);
+          return;
+        }
+        content.innerHTML = formHtml(s);
+        syncProgress();
+      }
+
+      function syncProgress() {
+        if (!survey || survey.myAnswers || survey.isClosed || survey.isExpired || survey.bindMode === 'group') return;
+        const qs = survey.questions || [];
+        const answered = qs.filter((q) => String(answers[q.k] || '').trim() !== '').length;
+        const text = document.getElementById('answeredText');
+        const bar = document.getElementById('progressBar');
+        if (text) text.textContent = '已答 ' + answered + '/' + qs.length;
+        if (bar) bar.style.width = (qs.length ? (answered / qs.length) * 100 : 0) + '%';
+      }
+
+      async function load() {
+        if (!sid) { fail('缺少問卷參數（sid）'); return; }
+        loading.classList.remove('hidden');
+        errorBox.classList.add('hidden');
+        content.classList.add('hidden');
+        try {
+          const s = await Survey.apiPublic('/surveys/' + encodeURIComponent(sid));
+          answers = answerMap(s.myAnswers);
+          render(s);
+          if (!s.myAnswers && !s.isClosed && !s.isExpired && s.bindMode !== 'group') {
+            Survey.apiPublic('/surveys/' + encodeURIComponent(sid) + '/visit', 'POST', {}).catch(() => {});
+          }
+        } catch (e) {
+          fail(e.message || '載入失敗');
+        }
+      }
+
+      content.addEventListener('input', (e) => {
+        const k = e.target.dataset.k;
+        if (!k) return;
+        answers[k] = e.target.value;
+        syncProgress();
+      });
+
+      content.addEventListener('change', (e) => {
+        const k = e.target.dataset.k;
+        if (!k) return;
+        answers[k] = e.target.value;
+        syncProgress();
+      });
+
+      content.addEventListener('click', (e) => {
+        const opt = e.target.closest('.opt');
+        if (opt) {
+          const k = opt.dataset.k;
+          const value = opt.dataset.opt;
+          answers[k] = value;
+          Array.from(content.querySelectorAll('.opt')).filter((el) => el.dataset.k === k).forEach((el) => {
+            el.classList.toggle('on', el === opt);
+          });
+          syncProgress();
+          return;
+        }
+
+        const copy = e.target.closest('#copyLink');
+        if (copy) {
+          const text = location.href;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => toast('已複製連結')).catch(() => toast('複製失敗，請手動複製', true));
+          } else {
+            const input = document.createElement('input');
+            input.value = text;
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            input.remove();
+            toast('已複製連結');
+          }
+          return;
+        }
+
+        const submit = e.target.closest('#submitBtn');
+        if (submit) submitAnswer();
+      });
+
+      async function submitAnswer() {
+        if (!survey) return;
+        const qs = survey.questions || [];
+        let missing = -1;
+        for (let i = 0; i < qs.length; i++) {
+          if (qs[i].required && String(answers[qs[i].k] || '').trim() === '') { missing = i; break; }
+        }
+        if (missing >= 0) {
+          toast('第 ' + (missing + 1) + ' 題是必填', true);
+          const el = document.getElementById('q-' + qs[missing].k);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        if (!confirm('提交後無法修改，管理員會看到你的答案。確定提交嗎？')) return;
+
+        const btn = document.getElementById('submitBtn');
+        if (btn) { btn.disabled = true; btn.textContent = '提交中…'; }
+        try {
+          await Survey.apiPublic('/surveys/' + encodeURIComponent(sid) + '/answer', 'POST', {
+            answers: qs.map((q) => ({ k: q.k, value: String(answers[q.k] || '').trim() })),
+          });
+          toast('提交成功');
+          setTimeout(() => load(), 600);
+        } catch (e) {
+          if (e.status === 409) {
+            toast('你已經提交過了，一人限一份', true);
+            setTimeout(() => load(), 800);
+          } else {
+            toast(e.message || '提交失敗', true);
+            if (btn) { btn.disabled = false; btn.textContent = '提交問卷'; }
+          }
+        }
+      }
+
+      load();
+    })();
+  </script>
+</body>
+</html>

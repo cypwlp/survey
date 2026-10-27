@@ -1,0 +1,134 @@
+(function () {
+  const ADMIN_KEY = 'surveyAdminPassword';
+  const UID_KEY = 'surveyWebUid';
+
+  function getAdminPassword() {
+    return sessionStorage.getItem(ADMIN_KEY) || '';
+  }
+  function setAdminPassword(p) {
+    sessionStorage.setItem(ADMIN_KEY, p);
+  }
+  function clearAdminPassword() {
+    sessionStorage.removeItem(ADMIN_KEY);
+  }
+
+  async function request(url, body, headers) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+    if (!res.ok) {
+      const err = new Error((data && data.error) || ('HTTP ' + res.status));
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  }
+
+  async function apiAdmin(path, method, data, query) {
+    return request('/api/admin/proxy', {
+      method: method || 'GET',
+      path: path,
+      data: data || {},
+      query: query || {},
+    }, { 'x-admin-password': getAdminPassword() });
+  }
+
+  function getWebUid() {
+    let id = localStorage.getItem(UID_KEY);
+    if (!id) {
+      id = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : ('web-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+      localStorage.setItem(UID_KEY, id);
+    }
+    return id;
+  }
+
+  async function apiPublic(path, method, data, query) {
+    return request('/api/public/proxy', {
+      method: method || 'GET',
+      path: path,
+      data: data || {},
+      query: query || {},
+      openid: getWebUid(),
+    });
+  }
+
+  function requireAdmin() {
+    if (!getAdminPassword()) {
+      location.href = 'index.html';
+      return false;
+    }
+    return true;
+  }
+
+  function fmtTime(iso, withYear) {
+    if (!iso) return '';
+    const t = Date.parse(iso);
+    if (isNaN(t)) return '';
+    const d = new Date(t + 8 * 3600 * 1000);
+    const p = (n) => (n < 10 ? '0' + n : '' + n);
+    if (withYear) return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
+    return p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes());
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+
+  let toastTimer = null;
+  function toast(msg, isErr) {
+    let el = document.getElementById('toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'toast';
+      el.className = 'toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.className = 'toast show' + (isErr ? ' err' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = 'toast'; }, 2600);
+  }
+
+  function downloadBase64(base64, filename, mime) {
+    const byteChars = atob(base64);
+    const bytes = new Uint8Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mime || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'download';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  function downloadText(text, filename, mime) {
+    const blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'download.txt';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  window.Survey = {
+    getAdminPassword, setAdminPassword, clearAdminPassword,
+    apiAdmin, apiPublic, getWebUid, requireAdmin,
+    fmtTime, esc, toast, downloadBase64, downloadText,
+  };
+})();

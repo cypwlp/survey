@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>建立問卷 · 小威問卷</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html">小威問卷</a>
+      <nav class="nav">
+        <a href="index.html">我的問卷</a>
+        <a href="create.html">建立問卷</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero compact">
+    <div class="hero-inner">
+      <span class="eyebrow">管理端 · 建立</span>
+      <h1>建立問卷</h1>
+      <p>預設已套用 5W 題目，可直接修改、增刪，或用 ▲▼ 調順序。</p>
+    </div>
+  </section>
+
+  <main class="wrap overlap">
+    <form id="createForm">
+      <section class="card">
+        <h2 class="sec-title">基本信息</h2>
+
+        <label class="label" for="title">問卷標題</label>
+        <input id="title" class="input" maxlength="100" placeholder="例：十月新流程公告確認" required>
+
+        <label class="label" for="groupName">群名稱（選填，用於標識這份問卷）</label>
+        <input id="groupName" class="input" maxlength="100" placeholder="例：小夥伴群／家庭群">
+        <div class="hint">選填。網頁版讀不到微信群名，這裡填寫的只是這份問卷的標識，用於列表顯示與匯出。</div>
+
+        <label class="label" for="announcement">公告內容</label>
+        <textarea id="announcement" class="textarea" maxlength="20000" placeholder="把群公告全文貼在這裡，成員答題時會看到這一段"></textarea>
+
+        <label class="label">作答範圍</label>
+        <div class="chip-row" id="bindChips">
+          <button type="button" class="chip on" data-bind="open">開放作答</button>
+          <button type="button" class="chip" data-bind="group">綁定群組</button>
+        </div>
+        <div class="hint" id="bindHint">開放作答：拿到連結或二維碼的人都能填，適合網頁分享。</div>
+
+        <label class="label">填寫人姓名</label>
+        <div class="chip-row" id="nameChips">
+          <button type="button" class="chip" data-name="none">不收集</button>
+          <button type="button" class="chip on" data-name="optional">選填</button>
+          <button type="button" class="chip" data-name="required">必填</button>
+        </div>
+        <div class="hint" id="nameHint">會在題目最前面自動加一題「你的姓名／稱呼」（選填）。</div>
+
+        <label class="label" for="deadline">截止日期（選填）</label>
+        <input id="deadline" class="input" type="date">
+        <div class="hint">到期當天 23:59（+8）自動停止接收答案。</div>
+      </section>
+
+      <section class="card">
+        <div class="row">
+          <h2 class="sec-title" style="margin:0">題目（<span id="qCount">5</span>）</h2>
+          <button type="button" id="addQuestion" class="btn btn-ghost btn-sm">＋ 加一題</button>
+        </div>
+        <div id="questions"></div>
+      </section>
+
+      <section class="card">
+        <button id="submitBtn" class="btn btn-primary btn-block" type="submit">建立問卷</button>
+        <div class="hint" style="text-align:center">建立後可立刻分享連結或二維碼。</div>
+      </section>
+    </form>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="js/api.js"></script>
+  <script>
+    (function () {
+      if (!Survey.requireAdmin()) return;
+
+      let seq = 0;
+      let questions = [
+        { k: 'what', type: 'text', title: 'What｜這個公告要做什麼？（寫出你理解到的重點）', required: true },
+        { k: 'why', type: 'choice', title: 'Why｜你對這次公告的背景與目標認可程度？', options: ['非常清楚目標', '大致清楚', '有疑問'], required: true },
+        { k: 'when', type: 'date', title: 'When｜你預計什麼時候完成／哪天有空？（選日期）', required: true },
+        { k: 'where', type: 'text', title: 'Where｜在哪裡進行？（會議連結或地點）', required: true },
+        { k: 'how', type: 'text', title: 'How｜打算怎麼執行／怎麼配合？', required: false },
+      ].map((q) => ({ ...q, uid: 'q' + (++seq) }));
+
+      let bindMode = 'open';
+      let nameMode = 'optional';
+      let nextKey = 6;
+
+      const questionsEl = document.getElementById('questions');
+      const qCountEl = document.getElementById('qCount');
+      const toast = (m, err) => Survey.toast(m, err);
+
+      function optionText(q) {
+        return (q.options || []).join('，');
+      }
+
+      function render() {
+        qCountEl.textContent = questions.length;
+        questionsEl.innerHTML = questions.map((q, index) => `
+          <div class="q-card" data-uid="${q.uid}">
+            <div class="q-head">
+              <span class="q-no">${index + 1}</span>
+              <div class="q-tools">
+                <button type="button" data-act="up" ${index === 0 ? 'disabled' : ''}>▲</button>
+                <button type="button" data-act="down" ${index === questions.length - 1 ? 'disabled' : ''}>▼</button>
+                <select class="select" data-act="type" style="width:auto;padding:5px 8px;font-size:12px">
+                  <option value="text" ${q.type === 'text' ? 'selected' : ''}>填充</option>
+                  <option value="choice" ${q.type === 'choice' ? 'selected' : ''}>單選</option>
+                  <option value="date" ${q.type === 'date' ? 'selected' : ''}>日期</option>
+                </select>
+                <button type="button" class="danger" data-act="del" title="刪除" aria-label="刪除">✕</button>
+              </div>
+            </div>
+            <textarea class="textarea q-title" data-field="title" maxlength="300" placeholder="題目內容">${Survey.esc(q.title)}</textarea>
+            ${q.type === 'choice' ? `<input class="input" style="margin-top:10px" data-field="options" value="${Survey.esc(optionText(q))}" placeholder="選項用逗號分隔：同意，有疑問，不同意">` : ''}
+            <div class="q-foot">
+              <label><input type="checkbox" data-field="required" ${q.required ? 'checked' : ''}> 必填</label>
+              <span class="faint">key：${Survey.esc(q.k)}</span>
+            </div>
+          </div>`).join('');
+      }
+
+      function qByUid(uid) {
+        return questions.find((q) => q.uid === uid);
+      }
+
+      questionsEl.addEventListener('input', (e) => {
+        const card = e.target.closest('.q-card');
+        if (!card) return;
+        const q = qByUid(card.dataset.uid);
+        if (!q) return;
+        const field = e.target.dataset.field;
+        if (field === 'title') q.title = e.target.value;
+        if (field === 'options') {
+          q.options = e.target.value.split(/[,，、\n]/).map((s) => s.trim()).filter(Boolean);
+        }
+      });
+
+      questionsEl.addEventListener('change', (e) => {
+        const card = e.target.closest('.q-card');
+        if (!card) return;
+        const q = qByUid(card.dataset.uid);
+        if (!q) return;
+        if (e.target.dataset.field === 'required') q.required = e.target.checked;
+        if (e.target.dataset.act === 'type') {
+          q.type = e.target.value;
+          if (q.type === 'choice' && (!q.options || !q.options.length)) q.options = ['同意', '不同意'];
+          render();
+        }
+      });
+
+      questionsEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        const card = btn.closest('.q-card');
+        const uid = card.dataset.uid;
+        const index = questions.findIndex((q) => q.uid === uid);
+        if (index < 0) return;
+        const act = btn.dataset.act;
+        if (act === 'del') {
+          if (questions.length <= 1) return toast('至少要有一道題目', true);
+          questions.splice(index, 1);
+          render();
+        } else if (act === 'up' && index > 0) {
+          [questions[index - 1], questions[index]] = [questions[index], questions[index - 1]];
+          render();
+        } else if (act === 'down' && index < questions.length - 1) {
+          [questions[index + 1], questions[index]] = [questions[index], questions[index + 1]];
+          render();
+        }
+      });
+
+      document.getElementById('addQuestion').addEventListener('click', () => {
+        questions.push({ k: 'q' + nextKey++, type: 'text', title: '', required: true, uid: 'q' + (++seq) });
+        render();
+      });
+
+      document.getElementById('bindChips').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-bind]');
+        if (!btn) return;
+        bindMode = btn.dataset.bind;
+        document.querySelectorAll('#bindChips .chip').forEach((el) => el.classList.toggle('on', el === btn));
+        document.getElementById('bindHint').textContent = bindMode === 'group'
+          ? '綁定群組：成員必須從微信群卡片進入；網頁連結／二維碼分發請用「開放作答」。'
+          : '開放作答：拿到連結或二維碼的人都能填，適合網頁分享。';
+      });
+
+      document.getElementById('nameChips').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-name]');
+        if (!btn) return;
+        nameMode = btn.dataset.name;
+        document.querySelectorAll('#nameChips .chip').forEach((el) => el.classList.toggle('on', el === btn));
+        document.getElementById('nameHint').textContent = nameMode === 'none'
+          ? '不收集姓名；微信不允許自動讀取成員暱稱。'
+          : '會在題目最前面自動加一題「你的姓名／稱呼」（' + (nameMode === 'required' ? '必填' : '選填') + '）。';
+      });
+
+      document.getElementById('deadline').min = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+
+      function buildQuestions() {
+        const out = questions.map((q) => {
+          const item = { k: q.k, type: q.type, title: (q.title || '').trim(), required: !!q.required };
+          if (q.type === 'choice') item.options = (q.options || []).map((s) => s.trim()).filter(Boolean);
+          return item;
+        });
+        if (nameMode !== 'none' && !out.some((q) => q.k === 'name')) {
+          out.unshift({ k: 'name', type: 'text', title: '你的姓名／稱呼', required: nameMode === 'required' });
+        }
+        return out;
+      }
+
+      document.getElementById('createForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('title').value.trim();
+        if (!title) return toast('請填問卷標題', true);
+        const built = buildQuestions();
+        if (!built.length) return toast('至少要有一道題目', true);
+        for (let i = 0; i < built.length; i++) {
+          if (!built[i].title) return toast('第 ' + (i + 1) + ' 題沒有標題', true);
+          if (built[i].type === 'choice' && (!built[i].options || built[i].options.length < 2)) {
+            return toast('第 ' + (i + 1) + ' 題至少要有 2 個選項', true);
+          }
+        }
+
+        const deadlineDate = document.getElementById('deadline').value;
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true;
+        btn.textContent = '建立中…';
+        try {
+          const res = await Survey.apiAdmin('/surveys', 'POST', {
+            title,
+            groupName: document.getElementById('groupName').value.trim(),
+            bindMode,
+            announcement: document.getElementById('announcement').value,
+            deadline: deadlineDate ? new Date(deadlineDate + 'T23:59:59+08:00').toISOString() : null,
+            questions: built,
+          });
+          location.href = 'survey.html?id=' + encodeURIComponent(res.surveyId);
+        } catch (err) {
+          if (err.status === 401) {
+            Survey.clearAdminPassword();
+            location.href = 'index.html';
+            return;
+          }
+          toast(err.message || '建立失敗', true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = '建立問卷';
+        }
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

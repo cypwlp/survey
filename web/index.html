@@ -3,90 +3,162 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>小威問卷 · Web 連線測試</title>
-  <style>
-    :root { color-scheme: light; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      background: linear-gradient(140deg, #4f46e5, #7c3aed 55%, #9333ea);
-      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-      color: #0f172a;
-    }
-    main {
-      width: min(560px, 100%);
-      background: #fff;
-      border-radius: 24px;
-      padding: 28px;
-      box-shadow: 0 20px 60px rgba(15, 23, 42, .28);
-    }
-    h1 { margin: 0 0 6px; font-size: 22px; }
-    .sub { margin: 0 0 20px; color: #64748b; font-size: 13px; line-height: 1.6; }
-    button {
-      width: 100%;
-      border: 0;
-      border-radius: 999px;
-      padding: 14px 18px;
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      color: #fff;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    button:disabled { opacity: .6; cursor: default; }
-    pre {
-      margin: 18px 0 0;
-      padding: 16px;
-      border-radius: 14px;
-      background: #f6f8fc;
-      color: #334155;
-      font-size: 12px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-word;
-      min-height: 80px;
-    }
-    .ok { color: #047857; }
-    .err { color: #b91c1c; }
-  </style>
+  <title>小威問卷 · 管理端</title>
+  <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-  <main>
-    <h1>Web ↔ 雲開發 連線測試</h1>
-    <p class="sub">
-      雲托管代理呼叫同一個雲函數 <b>osurvey</b>，<br>
-      成功就代表網頁和小程序共用同一套數據。
-    </p>
-    <button id="run">開始測試</button>
-    <pre id="out">尚未測試</pre>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html">小威問卷</a>
+      <nav class="nav" id="nav" style="display:none">
+        <a href="index.html">我的問卷</a>
+        <a href="create.html">建立問卷</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <span class="eyebrow">管理端 · WEB</span>
+      <h1>小威問卷</h1>
+      <p>建立問卷、分享連結、查看統計；資料與小程序共用同一套。</p>
+    </div>
+  </section>
+
+  <main class="wrap overlap">
+    <section id="loginCard" class="card login-card">
+      <h2>管理員登入</h2>
+      <p class="muted" style="margin-top:0">輸入你在雲托管設定的 <b>WEB_ADMIN_PASSWORD</b>。</p>
+      <form id="loginForm">
+        <label class="label" for="password">管理員密碼</label>
+        <input id="password" class="input" type="password" autocomplete="current-password" placeholder="輸入密碼" required>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-block" type="submit">登入</button>
+        </div>
+      </form>
+      <div id="loginError" class="notice notice-err hidden"></div>
+      <p class="hint">密碼只存在這個瀏覽器的 sessionStorage，關閉分頁即登出。</p>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <div class="card">
+        <div class="row">
+          <h2 class="sec-title" style="margin:0">我的問卷</h2>
+          <a class="btn btn-primary btn-sm" href="create.html">＋ 建立問卷</a>
+        </div>
+        <div class="kpis" style="margin-top:18px">
+          <div class="kpi"><b id="kpiTotal">0</b><span>全部問卷</span></div>
+          <div class="kpi hi"><b id="kpiLive">0</b><span>進行中</span></div>
+          <div class="kpi"><b id="kpiAnswers">0</b><span>累計提交</span></div>
+        </div>
+      </div>
+
+      <div id="list"></div>
+
+      <div class="row" style="justify-content:flex-end">
+        <button id="logoutBtn" class="btn btn-quiet btn-sm">登出</button>
+      </div>
+    </section>
   </main>
 
+  <div id="toast" class="toast"></div>
+  <script src="js/api.js"></script>
   <script>
-    const out = document.getElementById('out');
-    const btn = document.getElementById('run');
+    (function () {
+      const loginCard = document.getElementById('loginCard');
+      const dashboard = document.getElementById('dashboard');
+      const nav = document.getElementById('nav');
+      const listEl = document.getElementById('list');
+      const loginError = document.getElementById('loginError');
+      const passwordEl = document.getElementById('password');
 
-    btn.addEventListener('click', async () => {
-      btn.disabled = true;
-      out.className = '';
-      out.textContent = '初始化中…';
-      try {
-        const res = await fetch('/api/health', { headers: { Accept: 'application/json' } });
-        const health = await res.json();
-        if (!res.ok) throw new Error(health.error || ('HTTP ' + res.status));
-        out.className = 'ok';
-        out.textContent = '✅ 連線成功\n\n' + JSON.stringify(health, null, 2);
-      } catch (e) {
-        out.className = 'err';
-        out.textContent = '❌ 失敗\n\n' + (e && (e.message || e.errMsg || JSON.stringify(e)));
-      } finally {
-        btn.disabled = false;
+      function showLogin(msg) {
+        dashboard.classList.add('hidden');
+        nav.style.display = 'none';
+        loginCard.classList.remove('hidden');
+        loginError.classList.add('hidden');
+        loginError.textContent = '';
+        if (msg) {
+          loginError.textContent = msg;
+          loginError.classList.remove('hidden');
+        }
       }
-    });
+
+      function showDashboard() {
+        loginCard.classList.add('hidden');
+        dashboard.classList.remove('hidden');
+        nav.style.display = '';
+      }
+
+      function render(list) {
+        const total = list.length;
+        const live = list.filter((s) => !s.IsClosed && !s.IsExpired).length;
+        const answers = list.reduce((n, s) => n + (Number(s.AnswerCount) || 0), 0);
+        document.getElementById('kpiTotal').textContent = total;
+        document.getElementById('kpiLive').textContent = live;
+        document.getElementById('kpiAnswers').textContent = answers;
+
+        if (!total) {
+          listEl.innerHTML = '<div class="card empty"><div class="glyph">◍</div>還沒有問卷，點右上角「建立問卷」開始。</div>';
+          return;
+        }
+
+        listEl.innerHTML = list.map((s) => {
+          const ended = !!(s.IsClosed || s.IsExpired);
+          const status = s.IsClosed ? '已結束' : (s.IsExpired ? '已截止' : '進行中');
+          const tagClass = ended ? 'tag-end' : 'tag-live';
+          const group = s.GroupName ? Survey.esc(s.GroupName) : '未設定群名';
+          return `
+            <a class="card survey-card" href="survey.html?id=${encodeURIComponent(s.SurveyId)}">
+              <div class="row" style="align-items:flex-start">
+                <h3 class="survey-title">${Survey.esc(s.Title)}</h3>
+                <span class="tag ${tagClass}">${status}</span>
+              </div>
+              <div class="survey-meta">${group}｜${s.BindMode === 'group' ? '綁定群組' : '開放作答'}｜建立 ${Survey.fmtTime(s.CreateTime)}</div>
+              <div class="survey-stats">
+                <div class="survey-stat"><b>${Number(s.AnswerCount) || 0}</b><span>份提交</span></div>
+                <div class="survey-stat"><b>${Number(s.VisitCount) || 0}</b><span>人開啟</span></div>
+                <div class="survey-stat survey-stat--sm"><b>${s.Deadline ? Survey.fmtTime(s.Deadline) : '—'}</b><span>截止時間</span></div>
+              </div>
+            </a>`;
+        }).join('');
+      }
+
+      async function load() {
+        try {
+          const res = await Survey.apiAdmin('/surveys');
+          showDashboard();
+          render(res.list || []);
+        } catch (e) {
+          if (e.status === 401) {
+            Survey.clearAdminPassword();
+            showLogin('管理員密碼不正確');
+            return;
+          }
+          showLogin(e.message || '載入失敗');
+        }
+      }
+
+      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const p = passwordEl.value.trim();
+        if (!p) return;
+        Survey.setAdminPassword(p);
+        await load();
+        if (Survey.getAdminPassword()) passwordEl.value = '';
+      });
+
+      document.getElementById('logoutBtn').addEventListener('click', () => {
+        Survey.clearAdminPassword();
+        showLogin();
+      });
+
+      if (Survey.getAdminPassword()) {
+        load();
+      } else {
+        showLogin();
+      }
+    })();
   </script>
 </body>
 </html>

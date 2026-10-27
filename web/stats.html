@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>回收統計 · 小威問卷</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html">小威問卷</a>
+      <nav class="nav">
+        <a href="index.html">我的問卷</a>
+        <a id="backLink" href="#">返回問卷</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero compact">
+    <div class="hero-inner">
+      <span class="eyebrow">回收統計</span>
+      <h1 id="title">載入中…</h1>
+      <p id="sub"></p>
+    </div>
+  </section>
+
+  <main class="wrap overlap">
+    <div id="loading" class="card empty">載入中…</div>
+    <div id="error" class="card hidden"><div class="notice notice-err" id="errorMsg"></div></div>
+
+    <div id="content" class="hidden">
+      <section class="card">
+        <div class="kpis">
+          <div class="kpi hi"><b id="kpiAnswers">0</b><span>份提交</span></div>
+          <div class="kpi"><b id="kpiVisits">0</b><span>人開啟</span></div>
+          <div class="kpi"><b id="kpiRate">—</b><span>提交／開啟</span></div>
+        </div>
+        <div class="faint" id="lastSubmit" style="text-align:right;margin-top:10px"></div>
+      </section>
+
+      <section class="card" id="trendCard">
+        <div class="row">
+          <h2 class="sec-title" style="margin:0">近 7 天提交</h2>
+          <span class="faint" id="todayCount"></span>
+        </div>
+        <div class="trend" id="trend"></div>
+      </section>
+
+      <section class="card">
+        <div class="row">
+          <h2 class="sec-title" style="margin:0">匯出</h2>
+          <span class="faint">時間已轉 +8</span>
+        </div>
+        <div class="btn-row">
+          <button id="exportXlsx" class="btn btn-primary btn-sm" type="button">匯出 Excel</button>
+          <button id="exportCsv" class="btn btn-ghost btn-sm" type="button">匯出 CSV</button>
+        </div>
+        <div class="hint">Excel 含答卷明細＋統計摘要；CSV 適合直接貼到其他系統。</div>
+      </section>
+
+      <section class="card" id="groupCard">
+        <div class="row">
+          <h2 class="sec-title" style="margin:0">各群提交數</h2>
+          <span class="tag tag-info" id="groupCount">0 個群</span>
+        </div>
+        <div id="perGroup"></div>
+      </section>
+
+      <div id="questions"></div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="js/api.js"></script>
+  <script>
+    (function () {
+      if (!Survey.requireAdmin()) return;
+      const id = new URLSearchParams(location.search).get('id');
+      if (!id) { location.href = 'index.html'; return; }
+
+      const COLORS = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
+      const $ = (s) => document.querySelector(s);
+      const content = $('#content');
+      const loading = $('#loading');
+      const errorBox = $('#error');
+      let stats = null;
+      let exporting = false;
+
+      function toast(msg, err) { Survey.toast(msg, err); }
+
+      function fail(msg) {
+        loading.classList.add('hidden');
+        content.classList.add('hidden');
+        errorBox.classList.remove('hidden');
+        $('#errorMsg').textContent = msg;
+      }
+
+      function statusOf(s) {
+        if (s.isClosed) return '問卷已結束';
+        if (s.isExpired) return '問卷已截止';
+        return '問卷進行中';
+      }
+
+      function render(s) {
+        stats = s;
+        loading.classList.add('hidden');
+        errorBox.classList.add('hidden');
+        content.classList.remove('hidden');
+
+        $('#title').textContent = s.title || '回收統計';
+        const mode = s.bindMode === 'group' ? (s.hasGroupBound ? '已綁定群組' : '待綁定群組') : '開放作答';
+        $('#sub').textContent = statusOf(s) + '｜' + mode + (s.deadline ? '｜截止 ' + Survey.fmtTime(s.deadline, true) : '');
+        $('#backLink').href = 'survey.html?id=' + encodeURIComponent(id);
+
+        $('#kpiAnswers').textContent = s.answerCount || 0;
+        $('#kpiVisits').textContent = s.visitCount || 0;
+        $('#kpiRate').textContent = s.visitCount ? Math.round((s.answerCount / s.visitCount) * 100) + '%' : '—';
+        $('#lastSubmit').textContent = s.lastSubmitTime ? '最近提交：' + Survey.fmtTime(s.lastSubmitTime) : '還沒有人提交';
+
+        const daily = s.daily || [];
+        const maxDaily = Math.max(1, ...daily.map((d) => d.count));
+        $('#trendCard').classList.toggle('hidden', !daily.length);
+        $('#todayCount').textContent = daily.length ? '今天 ' + daily[daily.length - 1].count + ' 份' : '';
+        $('#trend').innerHTML = daily.map((d) => `
+          <div class="trend-col">
+            <div class="trend-val">${d.count ? d.count : ''}</div>
+            <div class="trend-track"><div class="trend-bar" style="height:${Math.round((d.count / maxDaily) * 100)}%"></div></div>
+            <div class="trend-label">${Survey.esc(d.label)}</div>
+          </div>`).join('');
+
+        const groups = s.perGroup || [];
+        $('#groupCard').classList.toggle('hidden', !groups.length);
+        $('#groupCount').textContent = (s.groupCount || groups.length) + ' 個群';
+        const maxGroup = Math.max(1, ...groups.map((g) => g.answerCount));
+        $('#perGroup').innerHTML = groups.map((g, i) => `
+          <div class="grow">
+            <div class="grow-top"><span>群 ${i + 1}</span><span class="faint">${Survey.esc(g.openGId)}</span></div>
+            <div class="track"><div class="bar" style="width:${Math.round((g.answerCount / maxGroup) * 100)}%"></div></div>
+            <div class="faint" style="text-align:right;margin-top:4px">${g.answerCount} 份提交</div>
+          </div>`).join('');
+
+        $('#questions').innerHTML = (s.questions || []).map((q, i) => {
+          const head = `
+            <div class="row" style="align-items:flex-start">
+              <h3 style="margin:0;font-size:16px;line-height:1.5;flex:1">${i + 1}. ${Survey.esc(q.title)}</h3>
+              <span class="tag tag-info">${q.type === 'choice' ? '單選' : (q.type === 'date' ? '日期' : '填充')}</span>
+            </div>
+            <div class="faint" style="margin:6px 0 14px">已回收 ${q.answerCount || 0} 份</div>`;
+
+          if (q.type === 'choice') {
+            const dist = (q.distribution || []).map((d, idx) => ({ ...d, color: COLORS[idx % COLORS.length] }));
+            const stack = dist.map((d) => `<div class="stack-seg" style="width:${d.pct}%;background:${d.color}"></div>`).join('');
+            const rows = dist.map((d) => `
+              <div class="dist">
+                <div class="dist-top">
+                  <span class="dist-label"><span class="dot" style="background:${d.color}"></span>${Survey.esc(d.option)}</span>
+                  <span class="dist-pct">${d.count} 份 · ${d.pct}%</span>
+                </div>
+                <div class="track"><div class="bar" style="width:${d.pct}%;background:${d.color}"></div></div>
+              </div>`).join('');
+            return `<section class="card">${head}<div class="stack">${stack}</div>${rows}</section>`;
+          }
+
+          const words = q.k === 'name' ? [] : (q.words || []);
+          const maxWord = Math.max(1, ...words.map((w) => w.n));
+          const cloud = words.length
+            ? `<div class="cloud">${words.map((w) => {
+                const r = w.n / maxWord;
+                const size = 13 + Math.round(r * 9);
+                const tier = r >= 0.6 ? '' : (r >= 0.3 ? ' t1' : ' t2');
+                return `<span class="word${tier}" style="font-size:${size}px">${Survey.esc(w.w)}</span>`;
+              }).join('')}</div><div class="faint" style="margin-bottom:8px">高頻詞（2 字詞組統計，非分詞）</div>`
+            : '';
+
+          const texts = q.texts || [];
+          const list = texts.length
+            ? `<div class="answers">${texts.map((t) => `
+                <div class="answer">
+                  <p>${Survey.esc(t.value)}</p>
+                  <small>${Survey.esc(t.openid || '')} · ${Survey.fmtTime(t.submitTime)}</small>
+                </div>`).join('')}</div>`
+            : '<div class="empty">（尚無回答）</div>';
+          return `<section class="card">${head}${cloud}${list}</section>`;
+        }).join('');
+      }
+
+      async function load() {
+        loading.classList.remove('hidden');
+        errorBox.classList.add('hidden');
+        content.classList.add('hidden');
+        try {
+          const s = await Survey.apiAdmin('/surveys/' + encodeURIComponent(id) + '/stats');
+          render(s);
+        } catch (e) {
+          if (e.status === 401) {
+            Survey.clearAdminPassword();
+            location.href = 'index.html';
+            return;
+          }
+          fail(e.message || '載入失敗');
+        }
+      }
+
+      function setExporting(v) {
+        exporting = v;
+        $('#exportXlsx').disabled = v;
+        $('#exportCsv').disabled = v;
+        $('#exportXlsx').textContent = v ? '匯出中…' : '匯出 Excel';
+      }
+
+      $('#exportXlsx').addEventListener('click', async () => {
+        if (exporting) return;
+        setExporting(true);
+        try {
+          const res = await Survey.apiAdmin('/surveys/' + encodeURIComponent(id) + '/export.xlsx');
+          if (!res || !res.base64) throw new Error('後端沒有回檔案內容');
+          Survey.downloadBase64(res.base64, res.filename || ('survey-' + id + '.xlsx'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          toast('已下載 Excel');
+        } catch (e) {
+          if (e.status === 401) { Survey.clearAdminPassword(); location.href = 'index.html'; return; }
+          toast(e.message || '匯出失敗', true);
+        } finally {
+          setExporting(false);
+        }
+      });
+
+      $('#exportCsv').addEventListener('click', async () => {
+        if (exporting) return;
+        setExporting(true);
+        try {
+          const text = await Survey.apiAdmin('/surveys/' + encodeURIComponent(id) + '/export.csv');
+          Survey.downloadText(String(text || ''), 'survey-' + id + '.csv', 'text/csv;charset=utf-8');
+          toast('已下載 CSV');
+        } catch (e) {
+          if (e.status === 401) { Survey.clearAdminPassword(); location.href = 'index.html'; return; }
+          toast(e.message || '匯出失敗', true);
+        } finally {
+          setExporting(false);
+        }
+      });
+
+      load();
+    })();
+  </script>
+</body>
+</html>
