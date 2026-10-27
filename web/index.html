@@ -22,7 +22,7 @@
     <div id="authWrap" class="auth-layout">
       <section class="auth-intro">
         <span class="eyebrow">小威問卷 · WEB</span>
-        <h1>把群公告，<br>變成一份看得懂的問卷。</h1>
+        <h1>把群公告，<br>變成一份<span class="grad-text">看得懂的問卷</span>。</h1>
         <p>建立問卷、分享連結或二維碼、即時看統計。資料與微信小程序共用同一套。</p>
         <ul class="auth-points">
           <li><span class="point-icon">✓</span><span><b>一分鐘建立</b>：5W 題目模板，改一改就能發。</span></li>
@@ -81,9 +81,18 @@
           <span class="tag tag-info">已登入</span>
         </div>
         <div class="kpis">
-          <div class="kpi"><b id="kpiTotal">0</b><span>全部問卷</span></div>
-          <div class="kpi hi"><b id="kpiLive">0</b><span>進行中</span></div>
-          <div class="kpi"><b id="kpiAnswers">0</b><span>累計提交</span></div>
+          <div class="kpi">
+            <svg class="kpi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+            <b id="kpiTotal">0</b><span>全部問卷</span>
+          </div>
+          <div class="kpi hi">
+            <svg class="kpi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2 6 4-12 2 6h6"/></svg>
+            <b id="kpiLive">0</b><span>進行中</span>
+          </div>
+          <div class="kpi">
+            <svg class="kpi-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>
+            <b id="kpiAnswers">0</b><span>累計提交</span>
+          </div>
         </div>
       </section>
 

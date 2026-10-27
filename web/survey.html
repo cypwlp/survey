@@ -62,7 +62,10 @@
           <div class="qr-panel">
             <div class="qr-panel-head"><span class="qr-label">小程序作答碼</span><span class="tag tag-live">微信</span></div>
             <img id="miniQrImg" alt="小程序作答碼" class="hidden">
-            <div id="miniQrPlaceholder" class="qr-placeholder">尚未產生</div>
+            <div id="miniQrPlaceholder" class="qr-placeholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14h1M14 20h1M18 20h3"/></svg>
+              <span>尚未產生</span>
+            </div>
             <p>微信群裡長按識別；已綁定微信的人會用同一個身份。</p>
             <button id="miniQrBtn" class="btn btn-ghost btn-sm" type="button">產生小程序碼</button>
           </div>
@@ -105,7 +108,7 @@
         <div class="hint" id="deadlineHint"></div>
       </section>
 
-      <section class="card" id="announcementCard">
+      <section class="card announce" id="announcementCard">
         <h2 class="sec-title">公告內容</h2>
         <div id="announcement" class="muted" style="white-space:pre-wrap;word-break:break-word"></div>
       </section>

@@ -52,6 +52,7 @@
         content.classList.add('hidden');
         errorBox.classList.remove('hidden');
         $('#errorMsg').textContent = msg;
+        if ($('#title').textContent === '載入中…') $('#title').textContent = '無法載入';
       }
 
       function renderIdentity(user) {
@@ -113,7 +114,7 @@
 
       function announcementHtml(s) {
         if (!s.announcement) return '';
-        return `<section class="card"><h2 class="sec-title">公告內容</h2><div style="white-space:pre-wrap;word-break:break-word;color:#334155">${esc(s.announcement)}</div></section>`;
+        return `<section class="card announce"><h2 class="sec-title">公告內容</h2><div style="white-space:pre-wrap;word-break:break-word;color:#334155">${esc(s.announcement)}</div></section>`;
       }
 
       function doneHtml(s) {
