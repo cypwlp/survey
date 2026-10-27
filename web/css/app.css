@@ -378,8 +378,6 @@ button { color: inherit; }
 .auth-switch { margin-top: 14px; text-align: center; }
 .link-btn { border: 0; background: none; color: var(--primary); font-size: 13px; font-weight: 700; cursor: pointer; padding: 4px 6px; }
 .link-btn:hover { text-decoration: underline; }
-.login-foot { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--faint); font-size: 11px; line-height: 1.6; }
-.login-foot b { color: var(--muted); }
 
 /* ---------- 工作台 ---------- */
 .dashboard-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
