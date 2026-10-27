@@ -13,6 +13,7 @@
       <nav class="nav">
         <a href="index.html">我的問卷</a>
         <a href="create.html">建立問卷</a>
+        <a href="account.html">帳號</a>
       </nav>
     </div>
   </header>
@@ -35,6 +36,7 @@
     <div id="error" class="card hidden"><div class="notice notice-err" id="errorMsg"></div></div>
 
     <div id="content" class="hidden">
+      <div id="notOwner" class="notice notice-warn hidden">這份問卷不是你建立的；你可以用下面的連結作答，但不能管理或查看統計。</div>
       <section class="card">
         <h2 class="sec-title">分享問卷</h2>
         <div class="share-link">
@@ -52,6 +54,16 @@
             <div class="hint">把連結貼到微信群，或把二維碼發給朋友。</div>
           </div>
         </div>
+        <div class="btn-row">
+          <button id="miniQrBtn" class="btn btn-quiet btn-sm" type="button">產生小程序碼</button>
+        </div>
+        <div id="miniQrBox" class="qr-box hidden" style="margin-top:16px">
+          <img id="miniQrImg" alt="小程序作答碼">
+          <div>
+            <div class="muted">微信掃碼 / 群裡長按識別</div>
+            <div class="hint">直接在小程序內作答；不需要先綁定。</div>
+          </div>
+        </div>
         <div id="groupWarning" class="notice notice-warn hidden" style="margin-top:16px">
           這份問卷目前是「綁定群組」模式：網頁連結／二維碼進來的人不能提交，請改成「開放作答」。
         </div>
@@ -60,7 +72,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="manageCard">
         <h2 class="sec-title">問卷管理</h2>
         <div class="menu">
           <div class="menu-row" id="closeRow">
@@ -102,8 +114,9 @@
   <div id="toast" class="toast"></div>
   <script src="js/api.js"></script>
   <script>
-    (function () {
-      if (!Survey.requireAdmin()) return;
+    (async function () {
+      const me = await Survey.requireUser();
+      if (!me) return;
       const id = new URLSearchParams(location.search).get('id');
       if (!id) { location.href = 'index.html'; return; }
 
@@ -158,8 +171,11 @@
         $('#qrImg').src = '/api/qr?text=' + encodeURIComponent(shareUrl);
 
         const isGroup = s.bindMode === 'group';
+        $('#notOwner').classList.toggle('hidden', !!s.isCreator);
+        $('#manageCard').classList.toggle('hidden', !s.isCreator);
+        $('#statsLink').classList.toggle('hidden', !s.isCreator);
+        $('#groupFixRow').classList.toggle('hidden', !s.isCreator || !isGroup);
         $('#groupWarning').classList.toggle('hidden', !isGroup);
-        $('#groupFixRow').classList.toggle('hidden', !isGroup);
 
         $('#closeTitle').textContent = s.isClosed ? '重新開放問卷' : '結束問卷';
         $('#closeDesc').textContent = s.isClosed ? '讓成員可以繼續提交' : '停止接收新答案';
@@ -233,6 +249,29 @@
           input.select();
           document.execCommand('copy');
           toast('已複製分享連結');
+        }
+      });
+
+      $('#miniQrBtn').addEventListener('click', async () => {
+        const btn = $('#miniQrBtn');
+        btn.disabled = true;
+        btn.textContent = '產生中…';
+        try {
+          const res = await fetch('/api/survey/qrcode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: Number(id) }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || '產生小程序碼失敗');
+          $('#miniQrImg').src = data.qr;
+          $('#miniQrBox').classList.remove('hidden');
+          btn.textContent = '重新產生小程序碼';
+        } catch (e) {
+          toast(e.message || '產生小程序碼失敗', true);
+          btn.textContent = '產生小程序碼';
+        } finally {
+          btn.disabled = false;
         }
       });
 

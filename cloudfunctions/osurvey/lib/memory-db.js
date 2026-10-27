@@ -16,12 +16,16 @@ function memoryDriver() {
   let seqVisit = 0;
   let seqGroup = 0;
   let seqGroupName = 0;
+  let seqWebUser = 0;
   let seqSeed = { surveys: 0, answers: 0, visits: 0, groups: 0, groupNames: 0 };
   const surveys = new Map();
   const answers = [];
   const visits = [];
   const groups = [];
   const groupNames = [];
+  const webUsers = [];
+  const webBinds = [];
+  const answerArchive = [];
   const now = () => new Date().toISOString();
 
   return {
@@ -201,6 +205,100 @@ function memoryDriver() {
       }
       return removed;
     },
+
+    async createWebUser({ userId, username, passwordHash, displayName }) {
+      if (webUsers.some((u) => u.Username === username)) throw duplicateError('這個用戶名已被使用');
+      const doc = {
+        UserId: userId, Username: username, PasswordHash: passwordHash,
+        DisplayName: displayName || username, BoundOpenId: null,
+        Identity: `web:${userId}`, CreatedAt: now(), UpdatedAt: now(),
+      };
+      webUsers.push(doc);
+      return { ...doc };
+    },
+    async getWebUserByUsername(username) {
+      const u = webUsers.find((x) => x.Username === username);
+      return u ? { ...u } : null;
+    },
+    async getWebUserById(userId) {
+      const u = webUsers.find((x) => x.UserId === userId);
+      return u ? { ...u } : null;
+    },
+    async getWebUserByBoundOpenId(openid) {
+      const u = webUsers.find((x) => x.BoundOpenId === openid);
+      return u ? { ...u } : null;
+    },
+    async setWebUserBoundOpenId(userId, openid) {
+      const u = webUsers.find((x) => x.UserId === userId);
+      if (!u) return false;
+      u.BoundOpenId = openid;
+      u.Identity = openid;
+      u.UpdatedAt = now();
+      return true;
+    },
+    async createWebBind({ token, userId, identity, webUid, expireAt }) {
+      if (webBinds.some((b) => b.Token === String(token))) return false;
+      webBinds.push({
+        Token: String(token), UserId: userId, Identity: identity, WebUid: webUid || '',
+        Status: 'pending', OpenId: null, CreatedAt: now(), ExpireAt: expireAt,
+      });
+      return true;
+    },
+    async getWebBind(token) {
+      const b = webBinds.find((x) => x.Token === String(token));
+      return b ? { ...b } : null;
+    },
+    async setWebBindStatus(token, status, openid) {
+      const b = webBinds.find((x) => x.Token === String(token));
+      if (!b) return false;
+      b.Status = status;
+      b.OpenId = openid || null;
+      b.UpdatedAt = now();
+      return true;
+    },
+    async migrateWebIdentity({ webIds, openid }) {
+      const ids = [...new Set((webIds || []).filter(Boolean).map(String))];
+      const out = { surveys: 0, answersMoved: 0, answersArchived: 0, visitsMoved: 0, visitsArchived: 0 };
+      if (!ids.length) return out;
+      for (const s of surveys.values()) {
+        if (ids.includes(s.CreatorOpenId)) { s.CreatorOpenId = openid; out.surveys += 1; }
+      }
+      for (let i = answers.length - 1; i >= 0; i--) {
+        const a = answers[i];
+        if (!ids.includes(a.OpenId)) continue;
+        const existing = answers.find((x) => x !== a && x.SurveyId === a.SurveyId && x.OpenId === openid);
+        if (!existing) {
+          answers.push({ ...a, OpenId: openid, AnswerId: ++seqAnswer });
+          answers.splice(i, 1);
+          out.answersMoved += 1;
+          continue;
+        }
+        const aw = Date.parse(a.SubmitTime) || 0;
+        const ao = Date.parse(existing.SubmitTime) || 0;
+        if (aw < ao) {
+          existing.AnswersJson = a.AnswersJson;
+          existing.SubmitTime = a.SubmitTime;
+          existing.OpenGId = a.OpenGId || existing.OpenGId || null;
+        }
+        answerArchive.push({ ...a, ArchivedAt: now(), Reason: 'web-identity-merge', MergedInto: openid });
+        answers.splice(i, 1);
+        out.answersArchived += 1;
+      }
+      for (let i = visits.length - 1; i >= 0; i--) {
+        const v = visits[i];
+        if (!ids.includes(v.OpenId)) continue;
+        const existing = visits.find((x) => x !== v && x.SurveyId === v.SurveyId && x.OpenId === openid);
+        if (!existing) {
+          visits.push({ ...v, OpenId: openid, VisitId: ++seqVisit });
+          visits.splice(i, 1);
+          out.visitsMoved += 1;
+        } else {
+          visits.splice(i, 1);
+          out.visitsArchived += 1;
+        }
+      }
+      return out;
+    },
     async getAnswer(surveyId, openid) {
       const a = answers.find((x) => x.SurveyId === Number(surveyId) && x.OpenId === openid);
       return a ? { ...a } : null;
@@ -256,7 +354,11 @@ function memoryDriver() {
       return { cutoff, surveys: mine.size, answers: removedAnswers, visits: removedVisits };
     },
     async countDocs() {
-      return { survey: surveys.size, answer: answers.length, visit: visits.length, survey_group: groups.length, group_name: groupNames.length };
+      return {
+        survey: surveys.size, answer: answers.length, visit: visits.length,
+        survey_group: groups.length, group_name: groupNames.length,
+        web_user: webUsers.length, web_bind: webBinds.length, answer_archive: answerArchive.length,
+      };
     },
     async check() {
       const counts = await this.countDocs();

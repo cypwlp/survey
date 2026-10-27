@@ -13,7 +13,7 @@
  */
 const crypto = require('crypto');
 
-const COLLECTIONS = ['survey', 'answer', 'visit', 'survey_group', 'group_name'];
+const COLLECTIONS = ['survey', 'answer', 'visit', 'survey_group', 'group_name', 'web_user', 'web_bind', 'answer_archive'];
 
 function shortHash(s) {
   return crypto.createHash('sha1').update(String(s)).digest('hex').slice(0, 16);
@@ -266,6 +266,142 @@ function cloudDriver(cloud, { log = () => {} } = {}) {
         removed += (res.stats && res.stats.removed) || 0;
       }
       return removed;
+    },
+
+    async createWebUser({ userId, username, passwordHash, displayName }) {
+      const doc = {
+        _id: `u_${shortHash(username)}`,
+        UserId: userId,
+        Username: username,
+        PasswordHash: passwordHash,
+        DisplayName: displayName || username,
+        BoundOpenId: null,
+        Identity: `web:${userId}`,
+        CreatedAt: nowIso(),
+        UpdatedAt: nowIso(),
+      };
+      if (!(await addIfAbsent('web_user', doc))) {
+        const e = new Error('這個用戶名已被使用');
+        e.code = 'DUPLICATE';
+        throw e;
+      }
+      return doc;
+    },
+
+    async getWebUserByUsername(username) {
+      return findOne('web_user', { Username: username });
+    },
+
+    async getWebUserById(userId) {
+      return findOne('web_user', { UserId: userId });
+    },
+
+    async getWebUserByBoundOpenId(openid) {
+      return findOne('web_user', { BoundOpenId: openid });
+    },
+
+    async setWebUserBoundOpenId(userId, openid) {
+      return patch('web_user', { UserId: userId }, {
+        BoundOpenId: openid,
+        Identity: openid,
+        UpdatedAt: nowIso(),
+      });
+    },
+
+    async createWebBind({ token, userId, identity, webUid, expireAt }) {
+      return addIfAbsent('web_bind', {
+        _id: String(token),
+        Token: String(token),
+        UserId: userId,
+        Identity: identity,
+        WebUid: webUid || '',
+        Status: 'pending',
+        OpenId: null,
+        CreatedAt: nowIso(),
+        ExpireAt: expireAt,
+      });
+    },
+
+    async getWebBind(token) {
+      return findOne('web_bind', { _id: String(token) });
+    },
+
+    async setWebBindStatus(token, status, openid) {
+      return patch('web_bind', { _id: String(token) }, {
+        Status: status,
+        OpenId: openid || null,
+        UpdatedAt: nowIso(),
+      });
+    },
+
+    // 把網頁身份（web:<userId> + 當前瀏覽器 UUID）的資料合併到微信 openid。
+    // 規則：問卷直接改 CreatorOpenId；答卷同一問卷兩邊都有時保留較早的一份，
+    // 較晚的搬到 answer_archive（不刪資料）；開啟記錄保留一筆。
+    async migrateWebIdentity({ webIds, openid }) {
+      const ids = [...new Set((webIds || []).filter(Boolean).map(String))];
+      const out = { surveys: 0, answersMoved: 0, answersArchived: 0, visitsMoved: 0, visitsArchived: 0 };
+      if (!ids.length) return out;
+
+      // 1) 問卷建立者：直接改成 openid（不會有 _id 衝突）
+      const surveys = await findAll('survey', { CreatorOpenId: _.in(ids) }, { limit: 5000 });
+      for (const s of surveys) {
+        await patch('survey', { SurveyId: s.SurveyId }, { CreatorOpenId: openid, UpdateTime: nowIso() });
+        out.surveys += 1;
+      }
+
+      // 2) 答卷：逐份比對，較早者留在 openid 名下，較晚者進 archive
+      const answers = await findAll('answer', { OpenId: _.in(ids) }, { limit: 5000 });
+      for (const a of answers) {
+        const openId = `${Number(a.SurveyId)}_${openid}`;
+        const existing = await findOne('answer', { _id: openId });
+        if (!existing) {
+          const doc = { ...a, _id: openId, OpenId: openid };
+          await addIfAbsent('answer', doc);
+          await db.collection('answer').doc(a._id).remove();
+          out.answersMoved += 1;
+          continue;
+        }
+        const aw = Date.parse(a.SubmitTime) || 0;
+        const ao = Date.parse(existing.SubmitTime) || 0;
+        if (aw < ao) {
+          // web 較早：把 web 的答案內容更新到 openid 的答卷，保留 openid 的 _id
+          await patch('answer', { _id: openId }, {
+            AnswersJson: a.AnswersJson,
+            SubmitTime: a.SubmitTime,
+            OpenGId: a.OpenGId || existing.OpenGId || null,
+          });
+        }
+        await addIfAbsent('answer_archive', {
+          _id: `arch_${a._id}_${Date.now()}`,
+          ArchivedFrom: a._id,
+          MergedInto: openid,
+          SurveyId: a.SurveyId,
+          OpenId: a.OpenId,
+          OpenGId: a.OpenGId || null,
+          AnswersJson: a.AnswersJson,
+          SubmitTime: a.SubmitTime,
+          ArchivedAt: nowIso(),
+          Reason: 'web-identity-merge',
+        });
+        await db.collection('answer').doc(a._id).remove();
+        out.answersArchived += 1;
+      }
+
+      // 3) 開啟記錄：同一問卷同一個人只保留一筆
+      const visits = await findAll('visit', { OpenId: _.in(ids) }, { limit: 5000 });
+      for (const v of visits) {
+        const openId = `${Number(v.SurveyId)}_${openid}`;
+        const existing = await findOne('visit', { _id: openId });
+        if (!existing) {
+          await addIfAbsent('visit', { ...v, _id: openId, OpenId: openid });
+          await db.collection('visit').doc(v._id).remove();
+          out.visitsMoved += 1;
+        } else {
+          await db.collection('visit').doc(v._id).remove();
+          out.visitsArchived += 1;
+        }
+      }
+      return out;
     },
 
     async getAnswer(surveyId, openid) {

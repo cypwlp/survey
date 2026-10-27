@@ -26,6 +26,11 @@ const db = process.env.OSURVEY_DB === 'memory'
   ? memoryDriver()
   : cloudDriver(cloud, { log: (m) => console.log(m) });
 
+// 新集合（web_user / web_bind / answer_archive）在第一次冷啟動時自動建立。
+const ensureCollectionsReady = typeof db.ensureCollections === 'function'
+  ? db.ensureCollections().catch((e) => console.warn('[osurvey] 建立集合失敗：', (e && e.message) || e))
+  : Promise.resolve();
+
 // 群分享資料：小程式端把 wx.cloud.CloudID(...) 放在 event 最上層，
 // 微信會在進入雲函式前就把 openGId 解好（event.shareCloudId = { cloudID, data:{ openGId } }）。
 // 若前端只傳了 cloudID 字串，這裡再用 cloud.getOpenData 補一次。
@@ -89,6 +94,7 @@ const router = createRouter({
 });
 
 exports.main = async (event) => {
+  await ensureCollectionsReady;
   const wxCtx = (() => { try { return cloud.getWXContext() || {}; } catch (e) { return {}; } })();
   const openid = (event && event.openid) || wxCtx.OPENID || '';
   const result = await router.handle({ ...(event || {}), openid });

@@ -12,6 +12,7 @@
       <a class="brand" href="index.html">小威問卷</a>
       <nav class="nav">
         <a href="index.html">我的問卷</a>
+        <a href="account.html">帳號</a>
         <a id="backLink" href="#">返回問卷</a>
       </nav>
     </div>
@@ -74,8 +75,9 @@
   <div id="toast" class="toast"></div>
   <script src="js/api.js"></script>
   <script>
-    (function () {
-      if (!Survey.requireAdmin()) return;
+    (async function () {
+      const me = await Survey.requireUser();
+      if (!me) return;
       const id = new URLSearchParams(location.search).get('id');
       if (!id) { location.href = 'index.html'; return; }
 

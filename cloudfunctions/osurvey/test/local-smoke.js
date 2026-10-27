@@ -306,6 +306,37 @@ async function main() {
   r = await call(A, 'GET', `/surveys/${surveyId}/stats`, {});
   check('統計回傳近 7 天趨勢', r.statusCode === 200 && Array.isArray(r.data.daily) && r.data.daily.length === 7, r.data && r.data.daily);
 
+  console.log('\n[15] 多用戶帳號與微信綁定');
+  r = await call('', 'POST', '/webauth/register', { username: 'webuser', password: 'secret1', displayName: '網頁用戶' });
+  const webUser = r.data && r.data.user;
+  check('註冊網頁帳號', r.statusCode === 200 && !!webUser && webUser.identity === 'web:' + webUser.userId, r.data);
+  r = await call('', 'POST', '/webauth/login', { username: 'webuser', password: 'wrong' });
+  check('錯密碼 → 401', r.statusCode === 401, r.data);
+  r = await call('', 'POST', '/webauth/login', { username: 'webuser', password: 'secret1' });
+  check('登入成功', r.statusCode === 200 && r.data.user.userId === webUser.userId, r.data);
+
+  r = await call(webUser.identity, 'POST', '/surveys', { title: '網頁建立的問卷', questions: defaultQuestions(), bindMode: 'open' });
+  const webSurveyId = r.data && r.data.surveyId;
+  check('網頁身份建立問卷', r.statusCode === 200 && !!webSurveyId, r.data);
+  r = await call(webUser.identity, 'POST', `/surveys/${webSurveyId}/answer`, { answers });
+  check('網頁身份提交答案', r.statusCode === 200, r.data);
+
+  r = await call(webUser.identity, 'POST', '/webaccount/bind/create', { userId: webUser.userId, webUid: 'browser-uuid-1' });
+  const bindToken = r.data && r.data.token;
+  check('建立綁定碼', r.statusCode === 200 && !!bindToken, r.data);
+  r = await call(webUser.identity, 'GET', '/webaccount/bind/status', {}, { query: { token: bindToken } });
+  check('綁定狀態 pending', r.statusCode === 200 && r.data.status === 'pending', r.data);
+  r = await call('oMini', 'GET', `/surveys/${bindToken}`, {});
+  check('小程序看到確認綁定頁', r.statusCode === 200 && r.data.title === '確認綁定網頁帳號', r.data);
+  r = await call('oMini', 'POST', `/surveys/${bindToken}/answer`, { answers: [{ k: 'confirm', value: '確認綁定' }] });
+  check('小程序確認綁定', r.statusCode === 200, r.data);
+  r = await call(webUser.identity, 'GET', '/webaccount/bind/status', {}, { query: { token: bindToken } });
+  check('綁定狀態 confirmed', r.statusCode === 200 && r.data.status === 'confirmed' && r.data.openid === 'oMini', r.data);
+  r = await call('oMini', 'GET', `/surveys/${webSurveyId}`, {});
+  check('綁定後小程序看到網頁建立的問卷', r.statusCode === 200 && r.data.isCreator === true, r.data);
+  r = await call('oMini', 'GET', `/surveys/${webSurveyId}/stats`, {});
+  check('綁定後統計可讀且只算一份', r.statusCode === 200 && r.data.answerCount === 1, r.data);
+
   console.log(`\n${fail ? '✗ 失敗 ' + fail + ' 項 / ' : ''}通過 ${pass} 項`);
   if (fail) process.exit(1);
 }

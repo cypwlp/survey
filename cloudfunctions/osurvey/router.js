@@ -7,6 +7,7 @@
  *  1. 不必登入換 token：雲函式用 cloud.getWXContext().OPENID 免鑑權直接拿到 openid。
  *  2. 群 openGId 走 CloudID（微信在雲函式入口就把 openGId 解好塞進 event），不是 AES 解密。
  */
+const crypto = require('crypto');
 const { validateQuestions, gradeAnswers } = require('./lib/questions');
 const { buildStats, buildCsv, buildXlsx, parseSurvey, maskOpenId } = require('./lib/stats');
 
@@ -17,6 +18,43 @@ function httpError(status, message) {
 }
 
 const ok = (data) => ({ statusCode: 200, data });
+
+const BIND_QUESTIONS = [
+  { k: 'confirm', type: 'choice', title: '確認綁定這個網頁帳號？', options: ['確認綁定', '取消'], required: true },
+];
+const BIND_ANNOUNCEMENT = '這是一次性綁定。綁定後，這個微信和你的網頁帳號會使用同一個身份，同一份問卷只算一份。若不是你本人操作，請選「取消」。';
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return salt + '$' + hash;
+}
+
+function verifyPassword(password, stored) {
+  const parts = String(stored || '').split('$');
+  if (parts.length !== 2) return false;
+  const test = crypto.scryptSync(String(password), parts[0], 64);
+  const target = Buffer.from(parts[1], 'hex');
+  return target.length === test.length && crypto.timingSafeEqual(test, target);
+}
+
+function newUserId() {
+  return crypto.randomBytes(8).toString('hex');
+}
+
+function newBindToken() {
+  return String(Date.now()) + String(crypto.randomInt ? crypto.randomInt(100, 999) : Math.floor(Math.random() * 900 + 100));
+}
+
+function publicUser(u) {
+  return {
+    userId: u.UserId,
+    username: u.Username,
+    displayName: u.DisplayName,
+    identity: u.Identity || ('web:' + u.UserId),
+    boundOpenId: u.BoundOpenId || null,
+  };
+}
 
 function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = null, checkContent = null, log = () => {} }) {
   function splitChunks(text, size = 2000) {
@@ -119,6 +157,64 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
     return ok({ surveyId });
   }
 
+  async function registerWebUser(params, req) {
+    const body = req.data || {};
+    const username = String(body.username || '').trim().toLowerCase();
+    const password = String(body.password || '');
+    const displayName = String(body.displayName || '').trim().slice(0, 50);
+    if (!/^[a-z0-9_]{3,32}$/.test(username)) throw httpError(400, '用戶名需為 3~32 位字母、數字或底線');
+    if (password.length < 6 || password.length > 72) throw httpError(400, '密碼長度需為 6~72 位');
+    const existing = await db.getWebUserByUsername(username);
+    if (existing) throw httpError(409, '這個用戶名已被使用');
+    const user = await db.createWebUser({
+      userId: newUserId(),
+      username,
+      passwordHash: hashPassword(password),
+      displayName: displayName || username,
+    });
+    return ok({ user: publicUser(user) });
+  }
+
+  async function loginWebUser(params, req) {
+    const body = req.data || {};
+    const username = String(body.username || '').trim().toLowerCase();
+    const password = String(body.password || '');
+    const user = await db.getWebUserByUsername(username);
+    if (!user || !verifyPassword(password, user.PasswordHash)) throw httpError(401, '用戶名或密碼不正確');
+    return ok({ user: publicUser(user) });
+  }
+
+  async function createWebBind(params, req) {
+    const body = req.data || {};
+    const userId = String(body.userId || '');
+    const user = await db.getWebUserById(userId);
+    if (!user) throw httpError(404, '找不到網頁帳號');
+    if (req.openid && user.Identity && user.Identity !== req.openid) throw httpError(403, '這個綁定碼不屬於目前的網頁帳號');
+    if (user.BoundOpenId) throw httpError(400, '這個帳號已經綁定微信');
+    const token = newBindToken();
+    const expireAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    await db.createWebBind({
+      token,
+      userId: user.UserId,
+      identity: user.Identity || ('web:' + user.UserId),
+      webUid: String(body.webUid || '').slice(0, 64),
+      expireAt,
+    });
+    return ok({ token, expireAt });
+  }
+
+  async function webBindStatus(params, req) {
+    const token = String((req.query && req.query.token) || (req.data && req.data.token) || '');
+    const bind = await db.getWebBind(token);
+    if (!bind) throw httpError(404, '綁定碼不存在或已失效');
+    if (req.openid && bind.Identity && bind.Identity !== req.openid) throw httpError(403, '這個綁定碼不屬於目前的網頁帳號');
+    if (bind.Status === 'pending' && Date.parse(bind.ExpireAt) <= Date.now()) {
+      await db.setWebBindStatus(token, 'expired', null);
+      return ok({ status: 'expired' });
+    }
+    return ok({ status: bind.Status, openid: bind.Status === 'confirmed' ? bind.OpenId : null });
+  }
+
   async function listSurveys(params, req) {
     return ok({ list: await db.listSurveys(req.openid) });
   }
@@ -151,6 +247,30 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
 
   async function getSurvey(params, req) {
     const id = Number(params[0]);
+    const bind = await db.getWebBind(String(id));
+    if (bind) {
+      if (bind.Status === 'pending' && Date.parse(bind.ExpireAt) <= Date.now()) {
+        await db.setWebBindStatus(String(id), 'expired', null);
+        throw httpError(410, '綁定碼已過期，請回網頁重新產生');
+      }
+      const done = bind.Status === 'confirmed' && bind.OpenId === req.openid;
+      return ok({
+        surveyId: id,
+        title: '確認綁定網頁帳號',
+        groupName: '網頁登錄',
+        hasGroupBound: false,
+        groups: [],
+        bindMode: 'open',
+        isClosed: false,
+        deadline: null,
+        isExpired: false,
+        announcement: BIND_ANNOUNCEMENT,
+        questions: BIND_QUESTIONS,
+        isCreator: false,
+        myAnswers: done ? [{ k: 'confirm', value: '確認綁定' }] : null,
+        submitTime: bind.Status === 'confirmed' ? bind.UpdatedAt || null : null,
+      });
+    }
     const survey = await db.getSurvey(id);
     if (!survey) throw httpError(404, '問卷不存在');
     const mine = await db.getAnswer(id, req.openid);
@@ -267,6 +387,10 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
   // 從群卡片進入時呼叫：拿到 openGId 供前端顯示群名；group 模式下把該群加入問卷（多群模型）
   async function shareResolve(params, req) {
     const id = Number(params[0]);
+    const bind = await db.getWebBind(String(id));
+    if (bind) {
+      return ok({ openGId: '', dev: false, justAdded: false, knownGroup: false, groupCount: 0, groups: [] });
+    }
     const survey = await db.getSurvey(id);
     if (!survey) throw httpError(404, '問卷不存在');
     const { openGId, dev } = await shareOpenGId(shareOf(req));
@@ -284,6 +408,8 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
   // 記錄一次「開啟」（同人同問卷只記一次）
   async function visit(params, req) {
     const id = Number(params[0]);
+    const bind = await db.getWebBind(String(id));
+    if (bind) return ok({ ok: true });
     const survey = await db.getSurvey(id);
     if (!survey) throw httpError(404, '問卷不存在');
     let openGId = null;
@@ -294,6 +420,28 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
 
   async function submitAnswer(params, req) {
     const id = Number(params[0]);
+    const bind = await db.getWebBind(String(id));
+    if (bind) {
+      if (bind.Status !== 'pending') throw httpError(409, '這個綁定碼已使用或已失效');
+      if (Date.parse(bind.ExpireAt) <= Date.now()) {
+        await db.setWebBindStatus(String(id), 'expired', null);
+        throw httpError(410, '綁定碼已過期，請回網頁重新產生');
+      }
+      const { answers, error } = gradeAnswers(BIND_QUESTIONS, req.data && req.data.answers);
+      if (error) throw httpError(400, error);
+      const choice = answers.find((a) => a.k === 'confirm');
+      if (!choice || choice.value !== '確認綁定') {
+        await db.setWebBindStatus(String(id), 'cancelled', req.openid);
+        return ok({ ok: true, cancelled: true });
+      }
+      const already = await db.getWebUserByBoundOpenId(req.openid);
+      if (already && already.UserId !== bind.UserId) throw httpError(409, '這個微信已經綁定其他網頁帳號');
+      await db.setWebBindStatus(String(id), 'confirmed', req.openid);
+      await db.setWebUserBoundOpenId(bind.UserId, req.openid);
+      const webIds = [bind.Identity, bind.WebUid].filter(Boolean);
+      const merged = await db.migrateWebIdentity({ webIds, openid: req.openid });
+      return ok({ ok: true, merged });
+    }
     const survey = await db.getSurvey(id);
     if (!survey) throw httpError(404, '問卷不存在');
     if (survey.IsClosed) throw httpError(409, '問卷已結束');
@@ -426,6 +574,10 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
   const routes = [
     ['GET', /^\/auth\/whoami$/, async (p, req) => ok({ openid: req.openid, mode: 'cloud', dev: allowDevGid })],
     ['GET', /^\/health$/, health],
+    ['POST', /^\/webauth\/register$/, registerWebUser],
+    ['POST', /^\/webauth\/login$/, loginWebUser],
+    ['POST', /^\/webaccount\/bind\/create$/, createWebBind],
+    ['GET', /^\/webaccount\/bind\/status$/, webBindStatus],
     ['POST', /^\/surveys$/, createSurvey],
     ['GET', /^\/surveys$/, listSurveys],
     ['GET', /^\/groupnames$/, listGroupNames],

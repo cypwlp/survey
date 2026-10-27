@@ -13,6 +13,7 @@
       <nav class="nav">
         <a href="index.html">我的問卷</a>
         <a href="create.html">建立問卷</a>
+        <a href="account.html">帳號</a>
       </nav>
     </div>
   </header>
@@ -78,8 +79,9 @@
   <div id="toast" class="toast"></div>
   <script src="js/api.js"></script>
   <script>
-    (function () {
-      if (!Survey.requireAdmin()) return;
+    (async function () {
+      const me = await Survey.requireUser();
+      if (!me) return;
 
       let seq = 0;
       let questions = [

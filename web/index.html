@@ -13,6 +13,7 @@
       <nav class="nav" id="nav" style="display:none">
         <a href="index.html">我的問卷</a>
         <a href="create.html">建立問卷</a>
+        <a href="account.html">帳號</a>
       </nav>
     </div>
   </header>
@@ -21,29 +22,44 @@
     <div class="hero-inner">
       <span class="eyebrow">管理端 · WEB</span>
       <h1>小威問卷</h1>
-      <p>建立問卷、分享連結、查看統計；資料與小程序共用同一套。</p>
+      <p>每個人都可以建立自己的問卷，也可以填別人的問卷；資料與小程序共用同一套。</p>
     </div>
   </section>
 
   <main class="wrap overlap">
-    <section id="loginCard" class="card login-card">
-      <h2>管理員登入</h2>
-      <p class="muted" style="margin-top:0">輸入你在雲托管設定的 <b>WEB_ADMIN_PASSWORD</b>。</p>
-      <form id="loginForm">
-        <label class="label" for="password">管理員密碼</label>
-        <input id="password" class="input" type="password" autocomplete="current-password" placeholder="輸入密碼" required>
+    <section id="authCard" class="card login-card">
+      <h2 id="authTitle">登入</h2>
+      <p class="muted" style="margin-top:0" id="authSub">管理員帳號預設為 <b>admin</b>，密碼是你在雲托管設定的 <b>WEB_ADMIN_PASSWORD</b>。</p>
+      <form id="authForm">
+        <label class="label" for="username">用戶名</label>
+        <input id="username" class="input" autocomplete="username" placeholder="用戶名" required>
+
+        <label class="label hidden" id="displayNameLabel" for="displayName">顯示名稱</label>
+        <input id="displayName" class="input hidden" maxlength="50" placeholder="例：小明">
+
+        <label class="label" for="password">密碼</label>
+        <input id="password" class="input" type="password" autocomplete="current-password" placeholder="密碼" required>
+
+        <label class="label hidden" id="password2Label" for="password2">確認密碼</label>
+        <input id="password2" class="input hidden" type="password" autocomplete="new-password" placeholder="再輸入一次">
+
         <div class="btn-row">
-          <button class="btn btn-primary btn-block" type="submit">登入</button>
+          <button id="authBtn" class="btn btn-primary btn-block" type="submit">登入</button>
         </div>
       </form>
-      <div id="loginError" class="notice notice-err hidden"></div>
-      <p class="hint">密碼只存在這個瀏覽器的 sessionStorage，關閉分頁即登出。</p>
+      <div id="authError" class="notice notice-err hidden"></div>
+      <div class="btn-row">
+        <button id="modeBtn" class="btn btn-quiet btn-sm" type="button">還沒有帳號？註冊</button>
+      </div>
     </section>
 
     <section id="dashboard" class="hidden">
       <div class="card">
         <div class="row">
-          <h2 class="sec-title" style="margin:0">我的問卷</h2>
+          <div>
+            <h2 class="sec-title" style="margin:0">我的問卷</h2>
+            <div class="faint" id="who"></div>
+          </div>
           <a class="btn btn-primary btn-sm" href="create.html">＋ 建立問卷</a>
         </div>
         <div class="kpis" style="margin-top:18px">
@@ -56,7 +72,7 @@
       <div id="list"></div>
 
       <div class="row" style="justify-content:flex-end">
-        <button id="logoutBtn" class="btn btn-quiet btn-sm">登出</button>
+        <button id="logoutBtn" class="btn btn-quiet btn-sm" type="button">登出</button>
       </div>
     </section>
   </main>
@@ -65,38 +81,62 @@
   <script src="js/api.js"></script>
   <script>
     (function () {
-      const loginCard = document.getElementById('loginCard');
-      const dashboard = document.getElementById('dashboard');
-      const nav = document.getElementById('nav');
-      const listEl = document.getElementById('list');
-      const loginError = document.getElementById('loginError');
-      const passwordEl = document.getElementById('password');
+      let mode = 'login';
+      let currentUser = null;
+      const $ = (s) => document.querySelector(s);
+      const authCard = $('#authCard');
+      const dashboard = $('#dashboard');
+      const nav = $('#nav');
+      const listEl = $('#list');
+      const authError = $('#authError');
+      const usernameEl = $('#username');
+      const displayNameEl = $('#displayName');
+      const passwordEl = $('#password');
+      const password2El = $('#password2');
 
-      function showLogin(msg) {
+      function showAuth(msg) {
         dashboard.classList.add('hidden');
         nav.style.display = 'none';
-        loginCard.classList.remove('hidden');
-        loginError.classList.add('hidden');
-        loginError.textContent = '';
+        authCard.classList.remove('hidden');
+        authError.classList.add('hidden');
         if (msg) {
-          loginError.textContent = msg;
-          loginError.classList.remove('hidden');
+          authError.textContent = msg;
+          authError.classList.remove('hidden');
         }
       }
 
-      function showDashboard() {
-        loginCard.classList.add('hidden');
+      function showDashboard(user) {
+        currentUser = user;
+        authCard.classList.add('hidden');
         dashboard.classList.remove('hidden');
         nav.style.display = '';
+        $('#who').textContent = (user.displayName || user.username) + '（@' + user.username + '）';
+      }
+
+      function setMode(next) {
+        mode = next;
+        const reg = mode === 'register';
+        $('#authTitle').textContent = reg ? '註冊新帳號' : '登入';
+        $('#authSub').innerHTML = reg
+          ? '註冊後你可以建立自己的問卷，也可以填別人的問卷。'
+          : '管理員帳號預設為 <b>admin</b>，密碼是你在雲托管設定的 <b>WEB_ADMIN_PASSWORD</b>。';
+        $('#authBtn').textContent = reg ? '註冊並登入' : '登入';
+        $('#modeBtn').textContent = reg ? '已有帳號？登入' : '還沒有帳號？註冊';
+        $('#displayNameLabel').classList.toggle('hidden', !reg);
+        displayNameEl.classList.toggle('hidden', !reg);
+        $('#password2Label').classList.toggle('hidden', !reg);
+        password2El.classList.toggle('hidden', !reg);
+        passwordEl.autocomplete = reg ? 'new-password' : 'current-password';
+        authError.classList.add('hidden');
       }
 
       function render(list) {
         const total = list.length;
         const live = list.filter((s) => !s.IsClosed && !s.IsExpired).length;
         const answers = list.reduce((n, s) => n + (Number(s.AnswerCount) || 0), 0);
-        document.getElementById('kpiTotal').textContent = total;
-        document.getElementById('kpiLive').textContent = live;
-        document.getElementById('kpiAnswers').textContent = answers;
+        $('#kpiTotal').textContent = total;
+        $('#kpiLive').textContent = live;
+        $('#kpiAnswers').textContent = answers;
 
         if (!total) {
           listEl.innerHTML = '<div class="card empty"><div class="glyph">◍</div>還沒有問卷，點右上角「建立問卷」開始。</div>';
@@ -127,37 +167,58 @@
       async function load() {
         try {
           const res = await Survey.apiAdmin('/surveys');
-          showDashboard();
           render(res.list || []);
         } catch (e) {
-          if (e.status === 401) {
-            Survey.clearAdminPassword();
-            showLogin('管理員密碼不正確');
-            return;
-          }
-          showLogin(e.message || '載入失敗');
+          if (e.status === 401) { showAuth('請先登入'); return; }
+          showAuth(e.message || '載入失敗');
         }
       }
 
-      document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      $('#authForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const p = passwordEl.value.trim();
-        if (!p) return;
-        Survey.setAdminPassword(p);
-        await load();
-        if (Survey.getAdminPassword()) passwordEl.value = '';
+        authError.classList.add('hidden');
+        const username = usernameEl.value.trim();
+        const password = passwordEl.value;
+        if (!username || !password) return;
+        if (mode === 'register') {
+          if (password.length < 6) { authError.textContent = '密碼至少 6 位'; authError.classList.remove('hidden'); return; }
+          if (password !== password2El.value) { authError.textContent = '兩次密碼不一致'; authError.classList.remove('hidden'); return; }
+        }
+        const btn = $('#authBtn');
+        btn.disabled = true;
+        btn.textContent = mode === 'register' ? '註冊中…' : '登入中…';
+        try {
+          const res = mode === 'register'
+            ? await Survey.register(username, password, displayNameEl.value.trim())
+            : await Survey.login(username, password);
+          showDashboard(res.user);
+          await load();
+        } catch (err) {
+          authError.textContent = err.message || '操作失敗';
+          authError.classList.remove('hidden');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = mode === 'register' ? '註冊並登入' : '登入';
+        }
       });
 
-      document.getElementById('logoutBtn').addEventListener('click', () => {
-        Survey.clearAdminPassword();
-        showLogin();
+      $('#modeBtn').addEventListener('click', () => setMode(mode === 'login' ? 'register' : 'login'));
+
+      $('#logoutBtn').addEventListener('click', async () => {
+        try { await Survey.logout(); } catch (e) { /* ignore */ }
+        currentUser = null;
+        showAuth();
       });
 
-      if (Survey.getAdminPassword()) {
-        load();
-      } else {
-        showLogin();
-      }
+      (async () => {
+        try {
+          const r = await Survey.me();
+          showDashboard(r.user);
+          await load();
+        } catch (e) {
+          showAuth();
+        }
+      })();
     })();
   </script>
 </body>

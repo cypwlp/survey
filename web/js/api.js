@@ -1,23 +1,8 @@
 (function () {
-  const ADMIN_KEY = 'surveyAdminPassword';
   const UID_KEY = 'surveyWebUid';
 
-  function getAdminPassword() {
-    return sessionStorage.getItem(ADMIN_KEY) || '';
-  }
-  function setAdminPassword(p) {
-    sessionStorage.setItem(ADMIN_KEY, p);
-  }
-  function clearAdminPassword() {
-    sessionStorage.removeItem(ADMIN_KEY);
-  }
-
-  async function request(url, body, headers) {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
-      body: JSON.stringify(body),
-    });
+  async function fetchJson(url, opts) {
+    const res = await fetch(url, Object.assign({ credentials: 'same-origin' }, opts || {}));
     const text = await res.text();
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
@@ -30,13 +15,21 @@
     return data;
   }
 
-  async function apiAdmin(path, method, data, query) {
-    return request('/api/admin/proxy', {
+  function postJson(url, body) {
+    return fetchJson(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+  }
+
+  function apiAdmin(path, method, data, query) {
+    return postJson('/api/admin/proxy', {
       method: method || 'GET',
       path: path,
       data: data || {},
       query: query || {},
-    }, { 'x-admin-password': getAdminPassword() });
+    });
   }
 
   function getWebUid() {
@@ -50,8 +43,8 @@
     return id;
   }
 
-  async function apiPublic(path, method, data, query) {
-    return request('/api/public/proxy', {
+  function apiPublic(path, method, data, query) {
+    return postJson('/api/public/proxy', {
       method: method || 'GET',
       path: path,
       data: data || {},
@@ -60,12 +53,22 @@
     });
   }
 
-  function requireAdmin() {
-    if (!getAdminPassword()) {
+  function me() { return fetchJson('/api/webauth/me'); }
+  function login(username, password) { return postJson('/api/webauth/login', { username, password }); }
+  function register(username, password, displayName) { return postJson('/api/webauth/register', { username, password, displayName }); }
+  function logout() { return postJson('/api/webauth/logout', {}); }
+  function bindCreate() { return postJson('/api/account/bind/create', { webUid: getWebUid() }); }
+  function bindStatus(token) { return fetchJson('/api/account/bind/status?token=' + encodeURIComponent(token)); }
+
+  async function requireUser() {
+    try {
+      const r = await me();
+      return r.user;
+    } catch (e) {
+      if (e.status !== 401) toast(e.message || '登入狀態檢查失敗', true);
       location.href = 'index.html';
-      return false;
+      return null;
     }
-    return true;
   }
 
   function fmtTime(iso, withYear) {
@@ -127,8 +130,7 @@
   }
 
   window.Survey = {
-    getAdminPassword, setAdminPassword, clearAdminPassword,
-    apiAdmin, apiPublic, getWebUid, requireAdmin,
-    fmtTime, esc, toast, downloadBase64, downloadText,
+    apiAdmin, apiPublic, getWebUid, requireUser, me, login, register, logout,
+    bindCreate, bindStatus, fmtTime, esc, toast, downloadBase64, downloadText,
   };
 })();

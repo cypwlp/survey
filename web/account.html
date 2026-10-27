@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>帳號 · 小威問卷</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html">小威問卷</a>
+      <nav class="nav">
+        <a href="index.html">我的問卷</a>
+        <a href="create.html">建立問卷</a>
+        <a href="account.html">帳號</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero compact">
+    <div class="hero-inner">
+      <span class="eyebrow">帳號</span>
+      <h1>我的帳號</h1>
+      <p>管理員和填寫人都是同一種帳號；你可以建立自己的問卷，也可以填別人的問卷。</p>
+    </div>
+  </section>
+
+  <main class="wrap overlap">
+    <div id="loading" class="card empty">載入中…</div>
+    <div id="error" class="card hidden"><div class="notice notice-err" id="errorMsg"></div></div>
+
+    <div id="content" class="hidden">
+      <section class="card">
+        <h2 class="sec-title">基本資料</h2>
+        <div class="row"><span class="muted">顯示名稱</span><b id="displayName"></b></div>
+        <div class="row" style="margin-top:8px"><span class="muted">用戶名</span><b id="username"></b></div>
+        <div class="row" style="margin-top:8px"><span class="muted">身份</span><span id="identity" class="faint" style="word-break:break-all;text-align:right"></span></div>
+        <div class="btn-row"><button id="logoutBtn" class="btn btn-quiet btn-sm" type="button">登出</button></div>
+      </section>
+
+      <section class="card" id="bindCard">
+        <h2 class="sec-title">微信綁定</h2>
+        <div id="boundBox" class="notice notice-ok hidden">已綁定微信：<b id="boundId"></b></div>
+        <div id="legacyBox" class="notice notice-ok hidden">管理員帳號已綁定小程序的微信身份，不需要再綁定。</div>
+        <div id="bindIntro">
+          <div class="muted">綁定後，這個微信和你的網頁帳號會使用同一個身份；同一份問卷只算一份，網頁建立的問卷也會出現在小程序的「我的問卷」。</div>
+          <div class="hint">這是一次性綁定，不需要每次登入都掃碼；平時仍然用用戶名＋密碼登入網頁。</div>
+          <div class="btn-row"><button id="bindBtn" class="btn btn-primary btn-sm" type="button">綁定微信</button></div>
+        </div>
+        <div id="qrBox" class="hidden" style="margin-top:18px;text-align:center">
+          <img id="bindQr" alt="綁定微信二維碼" style="width:220px;height:220px;border:1px solid var(--line);border-radius:14px;background:#fff">
+          <div class="muted" id="bindStatus" style="margin-top:10px">請用微信掃碼，並在小程序按「確認綁定」</div>
+          <div class="hint">二維碼 5 分鐘內有效；過期可重新產生。</div>
+          <div class="btn-row" style="justify-content:center"><button id="refreshBind" class="btn btn-quiet btn-sm" type="button">重新產生</button></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="js/api.js"></script>
+  <script>
+    (async function () {
+      const $ = (s) => document.querySelector(s);
+      const content = $('#content');
+      const loading = $('#loading');
+      const errorBox = $('#error');
+      let pollTimer = null;
+
+      function fail(msg) {
+        loading.classList.add('hidden');
+        content.classList.add('hidden');
+        errorBox.classList.remove('hidden');
+        $('#errorMsg').textContent = msg;
+      }
+
+      function maskOpenId(id) {
+        const s = String(id || '');
+        if (!s) return '';
+        if (s.length <= 10) return s.slice(0, 2) + '****';
+        return s.slice(0, 4) + '****' + s.slice(-4);
+      }
+
+      function render(user) {
+        loading.classList.add('hidden');
+        errorBox.classList.add('hidden');
+        content.classList.remove('hidden');
+        $('#displayName').textContent = user.displayName || user.username;
+        $('#username').textContent = user.username;
+        $('#identity').textContent = maskOpenId(user.identity || '');
+
+        const bound = !!user.boundOpenId;
+        const legacy = !!user.isLegacyAdmin;
+        $('#boundBox').classList.toggle('hidden', !bound || legacy);
+        $('#boundId').textContent = maskOpenId(user.boundOpenId || '');
+        $('#legacyBox').classList.toggle('hidden', !legacy);
+        $('#bindIntro').classList.toggle('hidden', bound || legacy);
+        $('#qrBox').classList.add('hidden');
+      }
+
+      async function startBind() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        $('#qrBox').classList.add('hidden');
+        $('#bindStatus').textContent = '正在產生二維碼…';
+        try {
+          const res = await Survey.bindCreate();
+          $('#bindQr').src = res.qr;
+          $('#qrBox').classList.remove('hidden');
+          $('#bindStatus').textContent = '請用微信掃碼，並在小程序按「確認綁定」';
+          pollTimer = setInterval(async () => {
+            try {
+              const st = await Survey.bindStatus(res.token);
+              if (st.status === 'confirmed') {
+                clearInterval(pollTimer); pollTimer = null;
+                $('#bindStatus').textContent = '綁定成功，正在重新整理…';
+                setTimeout(() => location.reload(), 800);
+              } else if (st.status === 'expired' || st.status === 'cancelled') {
+                clearInterval(pollTimer); pollTimer = null;
+                $('#bindStatus').textContent = st.status === 'expired' ? '二維碼已過期，請重新產生' : '已取消綁定';
+              }
+            } catch (e) {
+              clearInterval(pollTimer); pollTimer = null;
+              $('#bindStatus').textContent = e.message || '查詢綁定狀態失敗';
+            }
+          }, 2000);
+        } catch (e) {
+          $('#bindStatus').textContent = e.message || '產生二維碼失敗';
+          Survey.toast(e.message || '產生二維碼失敗', true);
+        }
+      }
+
+      $('#bindBtn').addEventListener('click', startBind);
+      $('#refreshBind').addEventListener('click', startBind);
+      $('#logoutBtn').addEventListener('click', async () => {
+        try { await Survey.logout(); } catch (e) { /* ignore */ }
+        location.href = 'index.html';
+      });
+
+      try {
+        const r = await Survey.me();
+        render(r.user);
+      } catch (e) {
+        if (e.status === 401) { location.href = 'index.html'; return; }
+        fail(e.message || '載入失敗');
+      }
+    })();
+  </script>
+</body>
+</html>
