@@ -7,6 +7,9 @@ const SECRET = process.env.WX_SECRET || '';
 const TCB_ENV = process.env.TCB_ENV || '';
 const FUNCTION_NAME = process.env.FUNCTION_NAME || 'osurvey';
 const PORT = Number(process.env.PORT || 80);
+// 微信雲托管的默認出網代理會替換 TLS 憑證（官方社區已知問題）。
+// 只有明確設置 ALLOW_INSECURE_TLS=1 才接受該憑證，默認仍然嚴格校驗。
+const ALLOW_INSECURE_TLS = process.env.ALLOW_INSECURE_TLS === '1';
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -18,9 +21,11 @@ function requestJson(method, url, body) {
     const payload = body === undefined ? null : Buffer.from(JSON.stringify(body));
     const req = https.request({
       hostname: u.hostname,
+      servername: u.hostname,
       path: u.pathname + u.search,
       method,
       timeout: 15000,
+      rejectUnauthorized: !ALLOW_INSECURE_TLS,
       headers: {
         'Content-Type': 'application/json',
         ...(payload ? { 'Content-Length': payload.length } : {}),
@@ -108,4 +113,7 @@ app.use((req, res, next) => {
 
 app.listen(PORT, () => {
   console.log('[cloudrun] listening on ' + PORT);
+  if (ALLOW_INSECURE_TLS) {
+    console.warn('[cloudrun] ALLOW_INSECURE_TLS=1：已接受微信雲托管出網代理的憑證（僅測試用）');
+  }
 });
