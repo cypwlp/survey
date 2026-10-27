@@ -18,7 +18,7 @@
     </div>
   </header>
 
-  <section class="hero compact">
+  <section class="hero compact narrow">
     <div class="hero-inner">
       <span class="eyebrow">管理端 · 建立</span>
       <h1>建立問卷</h1>
@@ -26,39 +26,49 @@
     </div>
   </section>
 
-  <main class="wrap overlap">
+  <main class="wrap narrow">
     <form id="createForm">
       <section class="card">
-        <h2 class="sec-title">基本信息</h2>
+        <h2 class="sec-title">基本資料</h2>
 
         <label class="label" for="title">問卷標題</label>
         <input id="title" class="input" maxlength="100" placeholder="例：十月新流程公告確認" required>
 
-        <label class="label" for="groupName">群名稱（選填，用於標識這份問卷）</label>
-        <input id="groupName" class="input" maxlength="100" placeholder="例：小夥伴群／家庭群">
-        <div class="hint">選填。網頁版讀不到微信群名，這裡填寫的只是這份問卷的標識，用於列表顯示與匯出。</div>
+        <div class="form-grid">
+          <div>
+            <label class="label" for="groupName">群名稱（選填）</label>
+            <input id="groupName" class="input" maxlength="100" placeholder="例：小夥伴群／家庭群">
+            <div class="hint">只是這份問卷的標識，用於列表顯示與匯出；網頁讀不到微信群名。</div>
+          </div>
+          <div>
+            <label class="label" for="deadline">截止日期（選填）</label>
+            <input id="deadline" class="input" type="date">
+            <div class="hint">到期當天 23:59（+8）自動停止接收答案。</div>
+          </div>
+        </div>
 
         <label class="label" for="announcement">公告內容</label>
         <textarea id="announcement" class="textarea" maxlength="20000" placeholder="把群公告全文貼在這裡，成員答題時會看到這一段"></textarea>
 
-        <label class="label">作答範圍</label>
-        <div class="chip-row" id="bindChips">
-          <button type="button" class="chip on" data-bind="open">開放作答</button>
-          <button type="button" class="chip" data-bind="group">綁定群組</button>
+        <div class="form-grid">
+          <div>
+            <label class="label">作答範圍</label>
+            <div class="chip-row" id="bindChips">
+              <button type="button" class="chip on" data-bind="open">開放作答</button>
+              <button type="button" class="chip" data-bind="group">綁定群組</button>
+            </div>
+            <div class="hint" id="bindHint">開放作答：拿到連結或二維碼的人都能填，適合網頁分享。</div>
+          </div>
+          <div>
+            <label class="label">填寫人姓名</label>
+            <div class="chip-row" id="nameChips">
+              <button type="button" class="chip" data-name="none">不收集</button>
+              <button type="button" class="chip on" data-name="optional">選填</button>
+              <button type="button" class="chip" data-name="required">必填</button>
+            </div>
+            <div class="hint" id="nameHint">會在題目最前面自動加一題「你的姓名／稱呼」（選填）。</div>
+          </div>
         </div>
-        <div class="hint" id="bindHint">開放作答：拿到連結或二維碼的人都能填，適合網頁分享。</div>
-
-        <label class="label">填寫人姓名</label>
-        <div class="chip-row" id="nameChips">
-          <button type="button" class="chip" data-name="none">不收集</button>
-          <button type="button" class="chip on" data-name="optional">選填</button>
-          <button type="button" class="chip" data-name="required">必填</button>
-        </div>
-        <div class="hint" id="nameHint">會在題目最前面自動加一題「你的姓名／稱呼」（選填）。</div>
-
-        <label class="label" for="deadline">截止日期（選填）</label>
-        <input id="deadline" class="input" type="date">
-        <div class="hint">到期當天 23:59（+8）自動停止接收答案。</div>
       </section>
 
       <section class="card">
@@ -69,9 +79,12 @@
         <div id="questions"></div>
       </section>
 
-      <section class="card">
-        <button id="submitBtn" class="btn btn-primary btn-block" type="submit">建立問卷</button>
-        <div class="hint" style="text-align:center">建立後可立刻分享連結或二維碼。</div>
+      <section class="card submit-card">
+        <div class="submit-copy">
+          <b>建立後就能分享</b>
+          <span>會自動生成網頁連結與二維碼；你也可以另外產生小程序碼。</span>
+        </div>
+        <button id="submitBtn" class="btn btn-primary" type="submit">建立問卷</button>
       </section>
     </form>
   </main>
@@ -125,7 +138,6 @@
             ${q.type === 'choice' ? `<input class="input" style="margin-top:10px" data-field="options" value="${Survey.esc(optionText(q))}" placeholder="選項用逗號分隔：同意，有疑問，不同意">` : ''}
             <div class="q-foot">
               <label><input type="checkbox" data-field="required" ${q.required ? 'checked' : ''}> 必填</label>
-              <span class="faint">key：${Survey.esc(q.k)}</span>
             </div>
           </div>`).join('');
       }
@@ -248,8 +260,7 @@
           location.href = 'survey.html?id=' + encodeURIComponent(res.surveyId);
         } catch (err) {
           if (err.status === 401) {
-            Survey.clearAdminPassword();
-            location.href = 'index.html';
+            location.href = Survey.loginUrl(location.pathname + location.search);
             return;
           }
           toast(err.message || '建立失敗', true);

@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7fb">
   <title>填寫問卷 · 小威問卷</title>
   <link rel="stylesheet" href="css/app.css">
 </head>
@@ -13,7 +14,7 @@
     </div>
   </header>
 
-  <section class="hero compact">
+  <section class="hero compact focus">
     <div class="hero-inner">
       <span class="eyebrow" id="statusEyebrow">填寫問卷</span>
       <h1 id="title">載入中…</h1>
@@ -21,12 +22,14 @@
     </div>
   </section>
 
-  <main class="wrap overlap">
+  <main class="wrap focus">
+    <div id="identityBar" class="identity-bar hidden"></div>
     <div id="loading" class="card empty">載入中…</div>
     <div id="error" class="card hidden"><div class="notice notice-err" id="errorMsg"></div></div>
     <div id="content" class="hidden"></div>
   </main>
 
+  <footer class="site-foot">小威問卷 · 你的回答只會提供給這份問卷的管理員</footer>
   <div id="toast" class="toast"></div>
   <script src="js/api.js"></script>
   <script>
@@ -36,8 +39,11 @@
       const content = $('#content');
       const loading = $('#loading');
       const errorBox = $('#error');
+      const identityBar = $('#identityBar');
+      const isSurveyId = /^\d+$/.test(String(sid || ''));
       let survey = null;
       let answers = {};
+      let viewer = null;
 
       function toast(msg, err) { Survey.toast(msg, err); }
 
@@ -46,6 +52,38 @@
         content.classList.add('hidden');
         errorBox.classList.remove('hidden');
         $('#errorMsg').textContent = msg;
+      }
+
+      function renderIdentity(user) {
+        if (!isSurveyId) { identityBar.classList.add('hidden'); return; }
+        viewer = user;
+        if (user) {
+          const name = user.displayName || user.username || '已登入';
+          const bound = !!(user.boundOpenId || user.isLegacyAdmin);
+          identityBar.className = 'identity-bar is-user';
+          identityBar.innerHTML = `
+            <div class="identity-main">
+              <span class="identity-dot"></span>
+              <div><b>已登入：${esc(name)}</b><span>${bound ? '與你的微信小程序是同一個身份，兩邊只算一份。' : '這個帳號尚未綁定微信；綁定後網頁和小程序只算一份。'}</span></div>
+            </div>
+            ${bound ? '<button id="switchAccount" class="identity-action" type="button">切換</button>' : '<a class="identity-action" href="account.html">去綁定</a>'}`;
+          const switchBtn = document.getElementById('switchAccount');
+          if (switchBtn) switchBtn.addEventListener('click', switchAccount);
+        } else {
+          identityBar.className = 'identity-bar';
+          identityBar.innerHTML = `
+            <div class="identity-main">
+              <span class="identity-dot"></span>
+              <div><b>已綁定微信？</b><span>先登入，網頁和小程序只算同一份，不會重複作答。</span></div>
+            </div>
+            <a class="identity-action" href="${Survey.loginUrl(location.pathname + location.search)}">登入</a>`;
+        }
+        identityBar.classList.remove('hidden');
+      }
+
+      async function switchAccount() {
+        try { await Survey.logout(); } catch (e) { /* ignore */ }
+        location.href = Survey.loginUrl(location.pathname + location.search);
       }
 
       function statusText(s) {
@@ -81,37 +119,43 @@
       function doneHtml(s) {
         const map = answerMap(s.myAnswers);
         const qs = s.questions || [];
+        const bound = !!(viewer && (viewer.boundOpenId || viewer.isLegacyAdmin));
+        const hint = viewer
+          ? (bound ? '這份答卷已與你的微信身份綁定；在小程序或網頁登入同一帳號都不需要再填。' : '這份答卷已與你的網頁帳號綁定；綁定微信後，小程序也會看到同一份。')
+          : '一人限一份；同一瀏覽器不能重複提交。';
         return `
-          <section class="card" style="text-align:center;padding:34px 22px">
-            <div style="font-size:44px;line-height:1;margin-bottom:10px">🎉</div>
-            <h2 style="margin:0 0 6px">已提交，感謝配合！</h2>
+          <section class="card done-card">
+            <div class="done-icon">✓</div>
+            <h2>已提交，感謝配合！</h2>
             <div class="muted">提交時間：${s.submitTime ? Survey.fmtTime(s.submitTime, true) : '—'}</div>
-            <div class="hint">一人限一份；同一瀏覽器不能重複提交。</div>
-            <div class="btn-row" style="justify-content:center">
+            <div class="hint">${hint}</div>
+            <div class="btn-row center">
               <button class="btn btn-ghost btn-sm" id="copyLink" type="button">複製本頁連結</button>
             </div>
           </section>
           ${qs.map((q, i) => `
-            <section class="card">
-              <div class="row" style="align-items:flex-start">
-                <h3 style="margin:0;font-size:15px;line-height:1.5;flex:1">${i + 1}. ${esc(q.title)}</h3>
+            <section class="card answer-review">
+              <div class="review-head">
+                <span class="q-index">${i + 1}</span>
+                <h3>${esc(q.title)}</h3>
                 <span class="tag tag-info">${qType(q)}</span>
               </div>
-              <div style="margin-top:10px;background:#f6f8fc;border-radius:12px;padding:12px;white-space:pre-wrap;word-break:break-word">${esc(map[q.k] || '（未填）')}</div>
+              <div class="review-value">${esc(map[q.k] || '（未填）')}</div>
             </section>`).join('')}`;
       }
 
       function closedHtml(s) {
-        return `<section class="card" style="text-align:center;padding:34px 22px">
-          <div style="font-size:40px;line-height:1;margin-bottom:10px">—</div>
-          <h2 style="margin:0 0 6px">${s.isExpired ? '此問卷已截止' : '此問卷已結束'}</h2>
+        return `<section class="card state-card">
+          <div class="state-icon">—</div>
+          <h2>${s.isExpired ? '此問卷已截止' : '此問卷已結束'}</h2>
           <div class="muted">如需補答，請聯絡管理員。</div>
         </section>${announcementHtml(s)}`;
       }
 
       function groupOnlyHtml(s) {
-        return `<section class="card">
-          <h2 class="sec-title">需要在微信群裡打開</h2>
+        return `<section class="card state-card">
+          <div class="state-icon">群</div>
+          <h2>需要在微信群裡打開</h2>
           <div class="notice notice-warn">這份問卷目前是「綁定群組」模式，必須從微信群分享卡片進入。網頁連結／二維碼不能提交，請管理員在問卷詳情改成「開放作答」。</div>
         </section>${announcementHtml(s)}`;
       }
@@ -121,26 +165,30 @@
         const total = qs.length;
         return `
           ${announcementHtml(s)}
-          <section class="card">
-            <div class="row">
-              <h2 class="sec-title" style="margin:0">請填寫</h2>
-              <span class="faint" id="answeredText">已答 0/${total}</span>
+          <section class="card answer-form">
+            <div class="form-progress-head">
+              <div>
+                <h2 class="sec-title">請填寫</h2>
+                <p class="muted">帶 <span class="required-mark">*</span> 的題目為必填。</p>
+              </div>
+              <span class="progress-count" id="answeredText">0 / ${total}</span>
             </div>
             <div class="progress"><div id="progressBar" style="width:0%"></div></div>
-            <div style="margin-top:16px">
+            <div class="answer-list">
               ${qs.map((q, i) => `
                 <div class="answer-q" id="q-${esc(q.k)}">
-                  <div class="row" style="align-items:flex-start">
-                    <div class="q-title" style="flex:1;margin:0">${i + 1}. ${esc(q.title)}${q.required ? '<span style="color:#ef4444"> *</span>' : ''}</div>
+                  <div class="answer-q-head">
+                    <span class="q-index">${i + 1}</span>
+                    <div class="q-title">${esc(q.title)}${q.required ? '<span class="required-mark"> *</span>' : ''}</div>
                     <span class="tag tag-info">${qType(q)}</span>
                   </div>
                   ${q.type === 'text'
                     ? (q.k === 'name'
-                      ? `<input class="input" style="margin-top:12px" data-k="${esc(q.k)}" maxlength="50" value="${esc(answers[q.k] || '')}" placeholder="填寫你的姓名／稱呼">`
-                      : `<textarea class="textarea" style="margin-top:12px" data-k="${esc(q.k)}" maxlength="2000" placeholder="寫下你的理解或想法">${esc(answers[q.k] || '')}</textarea>`)
+                      ? `<input class="input answer-input" data-k="${esc(q.k)}" maxlength="50" autocomplete="name" value="${esc(answers[q.k] || '')}" placeholder="填寫你的姓名／稱呼">`
+                      : `<textarea class="textarea answer-textarea" data-k="${esc(q.k)}" maxlength="2000" placeholder="寫下你的理解或想法">${esc(answers[q.k] || '')}</textarea>`)
                     : q.type === 'date'
-                      ? `<input class="input" style="margin-top:12px" type="date" data-k="${esc(q.k)}" value="${esc(answers[q.k] || '')}">`
-                      : `<div style="margin-top:6px">${(q.options || []).map((opt) => `
+                      ? `<input class="input answer-input" type="date" data-k="${esc(q.k)}" value="${esc(answers[q.k] || '')}">`
+                      : `<div class="options">${(q.options || []).map((opt) => `
                           <div class="opt ${answers[q.k] === opt ? 'on' : ''}" data-k="${esc(q.k)}" data-opt="${esc(opt)}">
                             <span class="radio"></span><span>${esc(opt)}</span>
                           </div>`).join('')}</div>`}
@@ -148,8 +196,8 @@
             </div>
           </section>
           <div class="bottom-bar">
-            <button id="submitBtn" class="btn btn-primary btn-block" type="button">提交問卷</button>
-            <div class="hint" style="text-align:center">提交後無法修改；同一瀏覽器只能提交一次。</div>
+            <div class="dock-copy"><b>提交後無法修改</b><span>同一帳號／同一瀏覽器只能提交一次</span></div>
+            <button id="submitBtn" class="btn btn-primary" type="button">提交問卷</button>
           </div>`;
       }
 
@@ -188,7 +236,7 @@
         const answered = qs.filter((q) => String(answers[q.k] || '').trim() !== '').length;
         const text = document.getElementById('answeredText');
         const bar = document.getElementById('progressBar');
-        if (text) text.textContent = '已答 ' + answered + '/' + qs.length;
+        if (text) text.textContent = answered + ' / ' + qs.length;
         if (bar) bar.style.width = (qs.length ? (answered / qs.length) * 100 : 0) + '%';
       }
 
@@ -291,7 +339,15 @@
         }
       }
 
-      load();
+      async function boot() {
+        let user = null;
+        let known = true;
+        try { user = await Survey.meOptional(); } catch (e) { known = false; }
+        if (known) renderIdentity(user); else identityBar.classList.add('hidden');
+        await load();
+      }
+
+      boot();
     })();
   </script>
 </body>

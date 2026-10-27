@@ -54,6 +54,15 @@
   }
 
   function me() { return fetchJson('/api/webauth/me'); }
+  async function meOptional() {
+    try {
+      const r = await me();
+      return r.user;
+    } catch (e) {
+      if (e.status === 401) return null;
+      throw e;
+    }
+  }
   function login(username, password) { return postJson('/api/webauth/login', { username, password }); }
   function register(username, password, displayName) { return postJson('/api/webauth/register', { username, password, displayName }); }
   function logout() { return postJson('/api/webauth/logout', {}); }
@@ -66,9 +75,16 @@
       return r.user;
     } catch (e) {
       if (e.status !== 401) toast(e.message || '登入狀態檢查失敗', true);
-      location.href = 'index.html';
+      location.href = loginUrl();
       return null;
     }
+  }
+
+  function loginUrl(next) {
+    const target = next || (location.pathname + location.search + location.hash);
+    const pathOnly = String(target || '').split('?')[0].split('#')[0];
+    if (!target || /^\/?(index\.html)?$/.test(pathOnly)) return 'index.html';
+    return 'index.html?next=' + encodeURIComponent(target);
   }
 
   function fmtTime(iso, withYear) {
@@ -94,6 +110,8 @@
       el = document.createElement('div');
       el.id = 'toast';
       el.className = 'toast';
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
       document.body.appendChild(el);
     }
     el.textContent = msg;
@@ -130,7 +148,7 @@
   }
 
   window.Survey = {
-    apiAdmin, apiPublic, getWebUid, requireUser, me, login, register, logout,
+    apiAdmin, apiPublic, getWebUid, requireUser, me, meOptional, loginUrl, login, register, logout,
     bindCreate, bindStatus, fmtTime, esc, toast, downloadBase64, downloadText,
   };
 })();

@@ -18,72 +18,98 @@
     </div>
   </header>
 
-  <section class="hero">
-    <div class="hero-inner">
-      <span class="eyebrow">管理端 · WEB</span>
-      <h1>小威問卷</h1>
-      <p>每個人都可以建立自己的問卷，也可以填別人的問卷；資料與小程序共用同一套。</p>
-    </div>
-  </section>
+  <main class="wrap home">
+    <div id="authWrap" class="auth-layout">
+      <section class="auth-intro">
+        <span class="eyebrow">小威問卷 · WEB</span>
+        <h1>把群公告，<br>變成一份看得懂的問卷。</h1>
+        <p>建立問卷、分享連結或二維碼、即時看統計。資料與微信小程序共用同一套。</p>
+        <ul class="auth-points">
+          <li><span class="point-icon">✓</span><span><b>一分鐘建立</b>：5W 題目模板，改一改就能發。</span></li>
+          <li><span class="point-icon">✓</span><span><b>兩種入口</b>：微信群發小程序碼，電腦用網頁連結。</span></li>
+          <li><span class="point-icon">✓</span><span><b>同一份身份</b>：綁定微信後，兩邊只算一份答卷。</span></li>
+        </ul>
+        <div class="auth-note">免安裝、免下載，登入即可使用。</div>
+      </section>
 
-  <main class="wrap overlap">
-    <section id="authCard" class="card login-card">
-      <h2 id="authTitle">登入</h2>
-      <p class="muted" style="margin-top:0" id="authSub">管理員帳號預設為 <b>admin</b>，密碼是你在雲托管設定的 <b>WEB_ADMIN_PASSWORD</b>。</p>
-      <form id="authForm">
-        <label class="label" for="username">用戶名</label>
-        <input id="username" class="input" autocomplete="username" placeholder="用戶名" required>
-
-        <label class="label hidden" id="displayNameLabel" for="displayName">顯示名稱</label>
-        <input id="displayName" class="input hidden" maxlength="50" placeholder="例：小明">
-
-        <label class="label" for="password">密碼</label>
-        <input id="password" class="input" type="password" autocomplete="current-password" placeholder="密碼" required>
-
-        <label class="label hidden" id="password2Label" for="password2">確認密碼</label>
-        <input id="password2" class="input hidden" type="password" autocomplete="new-password" placeholder="再輸入一次">
-
-        <div class="btn-row">
-          <button id="authBtn" class="btn btn-primary btn-block" type="submit">登入</button>
+      <section id="authCard" class="card login-card">
+        <div class="login-head">
+          <h2 id="authTitle">登入</h2>
+          <p class="muted" id="authSub">用你的用戶名和密碼登入；第一次來可以先註冊。</p>
         </div>
-      </form>
-      <div id="authError" class="notice notice-err hidden"></div>
-      <div class="btn-row">
-        <button id="modeBtn" class="btn btn-quiet btn-sm" type="button">還沒有帳號？註冊</button>
-      </div>
-    </section>
+        <div id="nextHint" class="next-hint hidden">登入後會回到剛才的問卷。</div>
+        <form id="authForm">
+          <label class="label" for="username">用戶名</label>
+          <input id="username" class="input" autocomplete="username" placeholder="用戶名" required>
+
+          <label class="label hidden" id="displayNameLabel" for="displayName">顯示名稱</label>
+          <input id="displayName" class="input hidden" maxlength="50" placeholder="例：小明">
+
+          <label class="label" for="password">密碼</label>
+          <input id="password" class="input" type="password" autocomplete="current-password" placeholder="密碼" required>
+
+          <label class="label hidden" id="password2Label" for="password2">確認密碼</label>
+          <input id="password2" class="input hidden" type="password" autocomplete="new-password" placeholder="再輸入一次">
+
+          <div class="btn-row">
+            <button id="authBtn" class="btn btn-primary btn-block" type="submit">登入</button>
+          </div>
+        </form>
+        <div id="authError" class="notice notice-err hidden"></div>
+        <div class="auth-switch">
+          <button id="modeBtn" class="link-btn" type="button">還沒有帳號？註冊</button>
+        </div>
+        <div class="login-foot">管理員帳號為 <b>admin</b>，密碼是雲托管設定的 <b>WEB_ADMIN_PASSWORD</b>。</div>
+      </section>
+    </div>
 
     <section id="dashboard" class="hidden">
-      <div class="card">
-        <div class="row">
-          <div>
-            <h2 class="sec-title" style="margin:0">我的問卷</h2>
-            <div class="faint" id="who"></div>
-          </div>
-          <a class="btn btn-primary btn-sm" href="create.html">＋ 建立問卷</a>
+      <div class="dashboard-head">
+        <div>
+          <span class="eyebrow">工作台</span>
+          <h1>我的問卷</h1>
+          <p id="greeting"></p>
         </div>
-        <div class="kpis" style="margin-top:18px">
+        <a class="btn btn-primary" href="create.html">＋ 建立問卷</a>
+      </div>
+
+      <section class="card overview">
+        <div class="row overview-head">
+          <div>
+            <div class="faint">目前帳號</div>
+            <div class="who" id="who"></div>
+          </div>
+          <span class="tag tag-info">已登入</span>
+        </div>
+        <div class="kpis">
           <div class="kpi"><b id="kpiTotal">0</b><span>全部問卷</span></div>
           <div class="kpi hi"><b id="kpiLive">0</b><span>進行中</span></div>
           <div class="kpi"><b id="kpiAnswers">0</b><span>累計提交</span></div>
         </div>
-      </div>
+      </section>
 
+      <div class="list-head">
+        <h2 class="sec-title">全部問卷</h2>
+        <span class="faint" id="listMeta"></span>
+      </div>
       <div id="list"></div>
 
-      <div class="row" style="justify-content:flex-end">
+      <div class="row dashboard-foot">
+        <span class="faint">資料與小程序共用同一套</span>
         <button id="logoutBtn" class="btn btn-quiet btn-sm" type="button">登出</button>
       </div>
     </section>
   </main>
+
+  <footer class="site-foot">小威問卷 · 建立、分享、回收，一個連結搞定</footer>
 
   <div id="toast" class="toast"></div>
   <script src="js/api.js"></script>
   <script>
     (function () {
       let mode = 'login';
-      let currentUser = null;
       const $ = (s) => document.querySelector(s);
+      const authWrap = $('#authWrap');
       const authCard = $('#authCard');
       const dashboard = $('#dashboard');
       const nav = $('#nav');
@@ -93,12 +119,30 @@
       const displayNameEl = $('#displayName');
       const passwordEl = $('#password');
       const password2El = $('#password2');
+      const nextHint = $('#nextHint');
+      const next = safeNext();
+
+      function safeNext() {
+        const raw = new URLSearchParams(location.search).get('next');
+        if (!raw) return '';
+        try {
+          const u = new URL(raw, location.origin);
+          if (u.origin !== location.origin) return '';
+          const allowed = new Set(['/answer.html', '/survey.html', '/stats.html', '/create.html', '/account.html']);
+          if (!allowed.has(u.pathname)) return '';
+          return u.pathname + u.search + u.hash;
+        } catch (e) {
+          return '';
+        }
+      }
 
       function showAuth(msg) {
         dashboard.classList.add('hidden');
+        authWrap.classList.remove('hidden');
         nav.style.display = 'none';
         authCard.classList.remove('hidden');
         authError.classList.add('hidden');
+        nextHint.classList.toggle('hidden', !next);
         if (msg) {
           authError.textContent = msg;
           authError.classList.remove('hidden');
@@ -106,20 +150,21 @@
       }
 
       function showDashboard(user) {
-        currentUser = user;
-        authCard.classList.add('hidden');
+        authWrap.classList.add('hidden');
         dashboard.classList.remove('hidden');
         nav.style.display = '';
-        $('#who').textContent = (user.displayName || user.username) + '（@' + user.username + '）';
+        const name = user.displayName || user.username;
+        $('#who').textContent = name + '（@' + user.username + '）';
+        $('#greeting').textContent = '你好，' + name + '。今天想問大家什麼？';
       }
 
       function setMode(next) {
         mode = next;
         const reg = mode === 'register';
         $('#authTitle').textContent = reg ? '註冊新帳號' : '登入';
-        $('#authSub').innerHTML = reg
+        $('#authSub').textContent = reg
           ? '註冊後你可以建立自己的問卷，也可以填別人的問卷。'
-          : '管理員帳號預設為 <b>admin</b>，密碼是你在雲托管設定的 <b>WEB_ADMIN_PASSWORD</b>。';
+          : '用你的用戶名和密碼登入；第一次來可以先註冊。';
         $('#authBtn').textContent = reg ? '註冊並登入' : '登入';
         $('#modeBtn').textContent = reg ? '已有帳號？登入' : '還沒有帳號？註冊';
         $('#displayNameLabel').classList.toggle('hidden', !reg);
@@ -137,9 +182,16 @@
         $('#kpiTotal').textContent = total;
         $('#kpiLive').textContent = live;
         $('#kpiAnswers').textContent = answers;
+        $('#listMeta').textContent = total ? total + ' 份問卷' : '';
 
         if (!total) {
-          listEl.innerHTML = '<div class="card empty"><div class="glyph">◍</div>還沒有問卷，點右上角「建立問卷」開始。</div>';
+          listEl.innerHTML = `
+            <div class="card empty">
+              <div class="empty-icon">＋</div>
+              <h3>還沒有問卷</h3>
+              <p>建立第一份問卷，把連結發到群裡就能開始回收。</p>
+              <a class="btn btn-primary btn-sm" href="create.html">建立第一份問卷</a>
+            </div>`;
           return;
         }
 
@@ -150,11 +202,11 @@
           const group = s.GroupName ? Survey.esc(s.GroupName) : '未設定群名';
           return `
             <a class="card survey-card" href="survey.html?id=${encodeURIComponent(s.SurveyId)}">
-              <div class="row" style="align-items:flex-start">
+              <div class="row survey-card-head">
                 <h3 class="survey-title">${Survey.esc(s.Title)}</h3>
                 <span class="tag ${tagClass}">${status}</span>
               </div>
-              <div class="survey-meta">${group}｜${s.BindMode === 'group' ? '綁定群組' : '開放作答'}｜建立 ${Survey.fmtTime(s.CreateTime)}</div>
+              <div class="survey-meta">${group}<span class="meta-dot">·</span>${s.BindMode === 'group' ? '綁定群組' : '開放作答'}<span class="meta-dot">·</span>建立 ${Survey.fmtTime(s.CreateTime)}</div>
               <div class="survey-stats">
                 <div class="survey-stat"><b>${Number(s.AnswerCount) || 0}</b><span>份提交</span></div>
                 <div class="survey-stat"><b>${Number(s.VisitCount) || 0}</b><span>人開啟</span></div>
@@ -191,6 +243,7 @@
           const res = mode === 'register'
             ? await Survey.register(username, password, displayNameEl.value.trim())
             : await Survey.login(username, password);
+          if (next) { location.href = next; return; }
           showDashboard(res.user);
           await load();
         } catch (err) {
@@ -206,13 +259,18 @@
 
       $('#logoutBtn').addEventListener('click', async () => {
         try { await Survey.logout(); } catch (e) { /* ignore */ }
-        currentUser = null;
+        if (next) {
+          const u = new URL(location.href);
+          u.searchParams.delete('next');
+          history.replaceState(null, '', u.pathname + u.search);
+        }
         showAuth();
       });
 
       (async () => {
         try {
           const r = await Survey.me();
+          if (next) { location.href = next; return; }
           showDashboard(r.user);
           await load();
         } catch (e) {

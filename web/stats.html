@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7fb">
   <title>回收統計 · 小威問卷</title>
   <link rel="stylesheet" href="css/app.css">
 </head>
@@ -26,18 +27,24 @@
     </div>
   </section>
 
-  <main class="wrap overlap">
+  <main class="wrap">
     <div id="loading" class="card empty">載入中…</div>
     <div id="error" class="card hidden"><div class="notice notice-err" id="errorMsg"></div></div>
 
-    <div id="content" class="hidden">
-      <section class="card">
+    <div id="content" class="hidden stats-layout">
+      <section class="card" id="overviewCard">
+        <div class="row overview-head">
+          <div>
+            <h2 class="sec-title">回收概況</h2>
+            <p class="muted">即時更新，不用重新整理頁面。</p>
+          </div>
+          <span class="faint" id="lastSubmit"></span>
+        </div>
         <div class="kpis">
           <div class="kpi hi"><b id="kpiAnswers">0</b><span>份提交</span></div>
           <div class="kpi"><b id="kpiVisits">0</b><span>人開啟</span></div>
           <div class="kpi"><b id="kpiRate">—</b><span>提交／開啟</span></div>
         </div>
-        <div class="faint" id="lastSubmit" style="text-align:right;margin-top:10px"></div>
       </section>
 
       <section class="card" id="trendCard">
@@ -48,9 +55,9 @@
         <div class="trend" id="trend"></div>
       </section>
 
-      <section class="card">
+      <section class="card accent" id="exportCard">
         <div class="row">
-          <h2 class="sec-title" style="margin:0">匯出</h2>
+          <h2 class="sec-title">匯出</h2>
           <span class="faint">時間已轉 +8</span>
         </div>
         <div class="btn-row">
@@ -144,11 +151,12 @@
 
         $('#questions').innerHTML = (s.questions || []).map((q, i) => {
           const head = `
-            <div class="row" style="align-items:flex-start">
-              <h3 style="margin:0;font-size:16px;line-height:1.5;flex:1">${i + 1}. ${Survey.esc(q.title)}</h3>
+            <div class="stat-q-head">
+              <span class="q-index">${i + 1}</span>
+              <div class="stat-q-title">${Survey.esc(q.title)}</div>
               <span class="tag tag-info">${q.type === 'choice' ? '單選' : (q.type === 'date' ? '日期' : '填充')}</span>
             </div>
-            <div class="faint" style="margin:6px 0 14px">已回收 ${q.answerCount || 0} 份</div>`;
+            <div class="stat-q-meta">已回收 ${q.answerCount || 0} 份</div>`;
 
           if (q.type === 'choice') {
             const dist = (q.distribution || []).map((d, idx) => ({ ...d, color: COLORS[idx % COLORS.length] }));
@@ -161,7 +169,7 @@
                 </div>
                 <div class="track"><div class="bar" style="width:${d.pct}%;background:${d.color}"></div></div>
               </div>`).join('');
-            return `<section class="card">${head}<div class="stack">${stack}</div>${rows}</section>`;
+            return `<section class="card stat-q">${head}<div class="stack">${stack}</div>${rows}</section>`;
           }
 
           const words = q.k === 'name' ? [] : (q.words || []);
@@ -183,7 +191,7 @@
                   <small>${Survey.esc(t.openid || '')} · ${Survey.fmtTime(t.submitTime)}</small>
                 </div>`).join('')}</div>`
             : '<div class="empty">（尚無回答）</div>';
-          return `<section class="card">${head}${cloud}${list}</section>`;
+          return `<section class="card stat-q">${head}${cloud}${list}</section>`;
         }).join('');
       }
 
@@ -196,8 +204,7 @@
           render(s);
         } catch (e) {
           if (e.status === 401) {
-            Survey.clearAdminPassword();
-            location.href = 'index.html';
+            location.href = Survey.loginUrl(location.pathname + location.search);
             return;
           }
           fail(e.message || '載入失敗');
@@ -220,7 +227,7 @@
           Survey.downloadBase64(res.base64, res.filename || ('survey-' + id + '.xlsx'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
           toast('已下載 Excel');
         } catch (e) {
-          if (e.status === 401) { Survey.clearAdminPassword(); location.href = 'index.html'; return; }
+          if (e.status === 401) { location.href = Survey.loginUrl(location.pathname + location.search); return; }
           toast(e.message || '匯出失敗', true);
         } finally {
           setExporting(false);
@@ -235,7 +242,7 @@
           Survey.downloadText(String(text || ''), 'survey-' + id + '.csv', 'text/csv;charset=utf-8');
           toast('已下載 CSV');
         } catch (e) {
-          if (e.status === 401) { Survey.clearAdminPassword(); location.href = 'index.html'; return; }
+          if (e.status === 401) { location.href = Survey.loginUrl(location.pathname + location.search); return; }
           toast(e.message || '匯出失敗', true);
         } finally {
           setExporting(false);

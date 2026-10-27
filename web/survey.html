@@ -31,40 +31,46 @@
     </div>
   </section>
 
-  <main class="wrap overlap">
+  <main class="wrap">
     <div id="loading" class="card empty">載入中…</div>
     <div id="error" class="card hidden"><div class="notice notice-err" id="errorMsg"></div></div>
 
-    <div id="content" class="hidden">
+    <div id="content" class="hidden survey-layout">
       <div id="notOwner" class="notice notice-warn hidden">這份問卷不是你建立的；你可以用下面的連結作答，但不能管理或查看統計。</div>
-      <section class="card">
-        <h2 class="sec-title">分享問卷</h2>
+      <section class="card" id="shareCard">
+        <div class="share-head">
+          <div>
+            <h2 class="sec-title">分享問卷</h2>
+            <p class="muted">把連結貼到群裡，或讓大家掃碼作答。</p>
+          </div>
+        </div>
         <div class="share-link">
           <input id="shareLink" class="input" readonly>
-          <button id="copyBtn" class="btn btn-primary btn-sm" type="button">複製連結</button>
+          <button id="copyBtn" class="btn btn-primary" type="button">複製連結</button>
         </div>
         <div class="btn-row">
           <a id="openAnswer" class="btn btn-ghost btn-sm" target="_blank" rel="noopener">打開作答頁</a>
           <a id="statsLink" class="btn btn-quiet btn-sm">查看統計</a>
         </div>
-        <div class="qr-box" style="margin-top:18px">
-          <img id="qrImg" alt="問卷二維碼">
-          <div>
-            <div class="muted">手機掃碼直接作答</div>
-            <div class="hint">把連結貼到微信群，或把二維碼發給朋友。</div>
+
+        <div class="share-grid">
+          <div class="qr-panel">
+            <div class="qr-panel-head"><span class="qr-label">網頁作答碼</span><span class="tag tag-info">H5</span></div>
+            <img id="qrImg" alt="網頁問卷二維碼">
+            <p>給電腦、或沒裝小程序的人；微信掃碼也能直接開。</p>
+          </div>
+          <div class="qr-panel">
+            <div class="qr-panel-head"><span class="qr-label">小程序作答碼</span><span class="tag tag-live">微信</span></div>
+            <img id="miniQrImg" alt="小程序作答碼" class="hidden">
+            <div id="miniQrPlaceholder" class="qr-placeholder">尚未產生</div>
+            <p>微信群裡長按識別；已綁定微信的人會用同一個身份。</p>
+            <button id="miniQrBtn" class="btn btn-ghost btn-sm" type="button">產生小程序碼</button>
           </div>
         </div>
-        <div class="btn-row">
-          <button id="miniQrBtn" class="btn btn-quiet btn-sm" type="button">產生小程序碼</button>
-        </div>
-        <div id="miniQrBox" class="qr-box hidden" style="margin-top:16px">
-          <img id="miniQrImg" alt="小程序作答碼">
-          <div>
-            <div class="muted">微信掃碼 / 群裡長按識別</div>
-            <div class="hint">直接在小程序內作答；不需要先綁定。</div>
-          </div>
-        </div>
-        <div id="groupWarning" class="notice notice-warn hidden" style="margin-top:16px">
+
+        <div class="share-tip">微信群發小程序碼；電腦、外部渠道發網頁連結。兩邊資料共用同一套。</div>
+
+        <div id="groupWarning" class="notice notice-warn hidden">
           這份問卷目前是「綁定群組」模式：網頁連結／二維碼進來的人不能提交，請改成「開放作答」。
         </div>
         <div class="btn-row hidden" id="groupFixRow">
@@ -104,7 +110,7 @@
         <div id="announcement" class="muted" style="white-space:pre-wrap;word-break:break-word"></div>
       </section>
 
-      <section class="card">
+      <section class="card" id="questionsCard">
         <h2 class="sec-title">題目（<span id="qCount"></span>）</h2>
         <div id="questionList"></div>
       </section>
@@ -121,7 +127,7 @@
       if (!id) { location.href = 'index.html'; return; }
 
       let survey = null;
-      let shareUrl = location.origin + '/answer.html?sid=' + encodeURIComponent(id);
+      let shareUrl = new URL('answer.html?sid=' + encodeURIComponent(id), location.href).href;
 
       const $ = (s) => document.querySelector(s);
       const content = $('#content');
@@ -171,6 +177,8 @@
         $('#qrImg').src = '/api/qr?text=' + encodeURIComponent(shareUrl);
 
         const isGroup = s.bindMode === 'group';
+        content.classList.toggle('is-owner', !!s.isCreator);
+        content.classList.toggle('has-notice', !s.isCreator);
         $('#notOwner').classList.toggle('hidden', !!s.isCreator);
         $('#manageCard').classList.toggle('hidden', !s.isCreator);
         $('#statsLink').classList.toggle('hidden', !s.isCreator);
@@ -203,9 +211,8 @@
                 <span class="q-no">${i + 1}</span>
                 <div class="q-tools"><span class="tag tag-info">${type}</span><span class="tag ${q.required ? 'tag-warn' : 'tag-end'}">${q.required ? '必填' : '選填'}</span></div>
               </div>
-              <div style="font-weight:650;margin-top:10px">${Survey.esc(q.title)}</div>
+              <div class="q-title-text">${Survey.esc(q.title)}</div>
               ${opts}
-              <div class="faint" style="margin-top:6px">key：${Survey.esc(q.k)}</div>
             </div>`;
         }).join('');
       }
@@ -219,8 +226,7 @@
           render(s);
         } catch (e) {
           if (e.status === 401) {
-            Survey.clearAdminPassword();
-            location.href = 'index.html';
+            location.href = Survey.loginUrl(location.pathname + location.search);
             return;
           }
           fail(e.message || '載入失敗');
@@ -232,8 +238,7 @@
           return await Survey.apiAdmin(path, 'POST', data);
         } catch (e) {
           if (e.status === 401) {
-            Survey.clearAdminPassword();
-            location.href = 'index.html';
+            location.href = Survey.loginUrl(location.pathname + location.search);
             throw e;
           }
           throw e;
@@ -254,8 +259,12 @@
 
       $('#miniQrBtn').addEventListener('click', async () => {
         const btn = $('#miniQrBtn');
+        const img = $('#miniQrImg');
+        const placeholder = $('#miniQrPlaceholder');
         btn.disabled = true;
         btn.textContent = '產生中…';
+        placeholder.textContent = '產生中…';
+        placeholder.classList.remove('hidden');
         try {
           const res = await fetch('/api/survey/qrcode', {
             method: 'POST',
@@ -264,11 +273,15 @@
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || '產生小程序碼失敗');
-          $('#miniQrImg').src = data.qr;
-          $('#miniQrBox').classList.remove('hidden');
+          img.src = data.qr;
+          img.classList.remove('hidden');
+          placeholder.classList.add('hidden');
           btn.textContent = '重新產生小程序碼';
         } catch (e) {
           toast(e.message || '產生小程序碼失敗', true);
+          img.classList.add('hidden');
+          placeholder.textContent = '產生失敗，請再試一次';
+          placeholder.classList.remove('hidden');
           btn.textContent = '產生小程序碼';
         } finally {
           btn.disabled = false;

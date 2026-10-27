@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7fb">
   <title>帳號 · 小威問卷</title>
   <link rel="stylesheet" href="css/app.css">
 </head>
@@ -26,16 +27,23 @@
     </div>
   </section>
 
-  <main class="wrap overlap">
+  <main class="wrap">
     <div id="loading" class="card empty">載入中…</div>
     <div id="error" class="card hidden"><div class="notice notice-err" id="errorMsg"></div></div>
 
-    <div id="content" class="hidden">
-      <section class="card">
-        <h2 class="sec-title">基本資料</h2>
-        <div class="row"><span class="muted">顯示名稱</span><b id="displayName"></b></div>
-        <div class="row" style="margin-top:8px"><span class="muted">用戶名</span><b id="username"></b></div>
-        <div class="row" style="margin-top:8px"><span class="muted">身份</span><span id="identity" class="faint" style="word-break:break-all;text-align:right"></span></div>
+    <div id="content" class="hidden account-layout">
+      <section class="card profile-card">
+        <div class="profile-head">
+          <div class="avatar" id="avatar">小</div>
+          <div>
+            <h2 id="displayName"></h2>
+            <div class="faint">@<span id="username"></span></div>
+          </div>
+        </div>
+        <div class="kv-list">
+          <div class="kv"><span>身份標識</span><span id="identity" class="mono"></span></div>
+          <div class="kv"><span>帳號狀態</span><b id="accountStatus">一般帳號</b></div>
+        </div>
         <div class="btn-row"><button id="logoutBtn" class="btn btn-quiet btn-sm" type="button">登出</button></div>
       </section>
 
@@ -48,8 +56,8 @@
           <div class="hint">這是一次性綁定，不需要每次登入都掃碼；平時仍然用用戶名＋密碼登入網頁。</div>
           <div class="btn-row"><button id="bindBtn" class="btn btn-primary btn-sm" type="button">綁定微信</button></div>
         </div>
-        <div id="qrBox" class="hidden" style="margin-top:18px;text-align:center">
-          <img id="bindQr" alt="綁定微信二維碼" style="width:220px;height:220px;border:1px solid var(--line);border-radius:14px;background:#fff">
+        <div id="qrBox" class="bind-qr hidden">
+          <img id="bindQr" alt="綁定微信二維碼">
           <div class="muted" id="bindStatus" style="margin-top:10px">請用微信掃碼，並在小程序按「確認綁定」</div>
           <div class="hint">二維碼 5 分鐘內有效；過期可重新產生。</div>
           <div class="btn-row" style="justify-content:center"><button id="refreshBind" class="btn btn-quiet btn-sm" type="button">重新產生</button></div>
@@ -58,6 +66,7 @@
     </div>
   </main>
 
+  <footer class="site-foot">小威問卷 · 帳號與微信綁定</footer>
   <div id="toast" class="toast"></div>
   <script src="js/api.js"></script>
   <script>
@@ -89,9 +98,11 @@
         $('#displayName').textContent = user.displayName || user.username;
         $('#username').textContent = user.username;
         $('#identity').textContent = maskOpenId(user.identity || '');
+        $('#avatar').textContent = String(user.displayName || user.username || '?').slice(0, 1);
 
         const bound = !!user.boundOpenId;
         const legacy = !!user.isLegacyAdmin;
+        $('#accountStatus').textContent = legacy ? '管理員（已綁定）' : (bound ? '已綁定微信' : '未綁定微信');
         $('#boundBox').classList.toggle('hidden', !bound || legacy);
         $('#boundId').textContent = maskOpenId(user.boundOpenId || '');
         $('#legacyBox').classList.toggle('hidden', !legacy);
