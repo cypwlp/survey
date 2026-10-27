@@ -120,6 +120,34 @@
         return '問卷進行中';
       }
 
+      function countUp(el, to) {
+        if (!el) return;
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduce || !to) { el.textContent = to; return; }
+        const start = performance.now();
+        const dur = 620;
+        const step = (t) => {
+          const p = Math.min(1, (t - start) / dur);
+          const eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(to * eased);
+          if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+
+      function donutSvg(dist, total) {
+        const R = 54;
+        const C = 2 * Math.PI * R;
+        let acc = 0;
+        const segs = dist.map((d) => {
+          const len = total ? (d.count / total) * C : 0;
+          const seg = `<circle cx="70" cy="70" r="${R}" fill="none" stroke="${d.color}" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 70 70)"/>`;
+          acc += len;
+          return seg;
+        }).join('');
+        return `<svg viewBox="0 0 140 140" class="donut" role="img" aria-label="選項分佈">${segs}</svg>`;
+      }
+
       function render(s) {
         stats = s;
         loading.classList.add('hidden');
@@ -131,8 +159,8 @@
         $('#sub').textContent = statusOf(s) + '｜' + mode + (s.deadline ? '｜截止 ' + Survey.fmtTime(s.deadline, true) : '');
         $('#backLink').href = 'survey.html?id=' + encodeURIComponent(id);
 
-        $('#kpiAnswers').textContent = s.answerCount || 0;
-        $('#kpiVisits').textContent = s.visitCount || 0;
+        countUp($('#kpiAnswers'), s.answerCount || 0);
+        countUp($('#kpiVisits'), s.visitCount || 0);
         $('#kpiRate').textContent = s.visitCount ? Math.round((s.answerCount / s.visitCount) * 100) + '%' : '—';
         $('#lastSubmit').textContent = s.lastSubmitTime ? '最近提交：' + Survey.fmtTime(s.lastSubmitTime) : '還沒有人提交';
 
@@ -140,8 +168,8 @@
         const maxDaily = Math.max(1, ...daily.map((d) => d.count));
         $('#trendCard').classList.toggle('hidden', !daily.length);
         $('#todayCount').textContent = daily.length ? '今天 ' + daily[daily.length - 1].count + ' 份' : '';
-        $('#trend').innerHTML = daily.map((d) => `
-          <div class="trend-col">
+        $('#trend').innerHTML = daily.map((d, i) => `
+          <div class="trend-col${i === daily.length - 1 ? ' is-today' : ''}">
             <div class="trend-val">${d.count ? d.count : ''}</div>
             <div class="trend-track"><div class="trend-bar" style="height:${Math.round((d.count / maxDaily) * 100)}%"></div></div>
             <div class="trend-label">${Survey.esc(d.label)}</div>
@@ -169,7 +197,7 @@
 
           if (q.type === 'choice') {
             const dist = (q.distribution || []).map((d, idx) => ({ ...d, color: COLORS[idx % COLORS.length] }));
-            const stack = dist.map((d) => `<div class="stack-seg" style="width:${d.pct}%;background:${d.color}"></div>`).join('');
+            const total = dist.reduce((n, d) => n + d.count, 0);
             const rows = dist.map((d) => `
               <div class="dist">
                 <div class="dist-top">
@@ -178,7 +206,12 @@
                 </div>
                 <div class="track"><div class="bar" style="width:${d.pct}%;background:${d.color}"></div></div>
               </div>`).join('');
-            return `<section class="card stat-q">${head}<div class="stack">${stack}</div>${rows}</section>`;
+            return `<section class="card stat-q">${head}
+              <div class="choice-grid">
+                <div class="donut-wrap">${donutSvg(dist, total)}<div class="donut-center"><b>${total}</b><span>份</span></div></div>
+                <div class="choice-rows">${rows}</div>
+              </div>
+            </section>`;
           }
 
           const words = q.k === 'name' ? [] : (q.words || []);

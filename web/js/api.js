@@ -147,6 +147,17 @@
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
+  function initTopbar() {
+    const bar = document.querySelector('.topbar');
+    if (!bar) return;
+    const sync = () => bar.classList.toggle('is-scrolled', window.scrollY > 4);
+    sync();
+    window.addEventListener('scroll', sync, { passive: true });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initTopbar);
+  else initTopbar();
+
   window.Survey = {
     apiAdmin, apiPublic, getWebUid, requireUser, me, meOptional, loginUrl, login, register, logout,
     bindCreate, bindStatus, fmtTime, esc, toast, downloadBase64, downloadText,
