@@ -1,0 +1,19 @@
+.acc-box {
+  margin-top: 24rpx;
+  padding: 24rpx;
+  border-radius: var(--r-md);
+  background: #f6f8fc;
+}
+
+.acc-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  letter-spacing: 0.2rpx;
+}
+
+.hint {
+  color: var(--faint);
+  font-size: 22rpx;
+  line-height: 1.6;
+  margin-top: 16rpx;
+}

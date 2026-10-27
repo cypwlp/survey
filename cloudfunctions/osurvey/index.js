@@ -96,7 +96,9 @@ const router = createRouter({
 exports.main = async (event) => {
   await ensureCollectionsReady;
   const wxCtx = (() => { try { return cloud.getWXContext() || {}; } catch (e) { return {}; } })();
-  const openid = (event && event.openid) || wxCtx.OPENID || '';
+  // 小程序呼叫時微信會注入真實 openid，必須優先採用；否則前端只要在 data 裡帶 openid
+  // 就能冒充任何人。CloudRun 代理呼叫沒有微信用戶上下文，才退回 event.openid。
+  const openid = wxCtx.OPENID || (event && event.openid) || '';
   const result = await router.handle({ ...(event || {}), openid });
   return result;
 };

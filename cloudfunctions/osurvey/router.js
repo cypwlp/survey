@@ -215,6 +215,95 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
     return ok({ status: bind.Status, openid: bind.Status === 'confirmed' ? bind.OpenId : null });
   }
 
+  function assertPassword(password) {
+    const p = String(password || '');
+    if (p.length < 6 || p.length > 72) throw httpError(400, '密碼長度需為 6~72 位');
+    return p;
+  }
+
+  // 管理員身份的錨點：CloudRun 會用登入 session 的 identity 當 openid 轉發，
+  // 小程序端則由微信注入真實 openid（見 index.js 的取值順序），兩邊都無法偽造。
+  const DEFAULT_ADMIN_OPENID = 'oDdte3WoBj2ZZiEdvIG6hCLTIK_k';
+  function isAdminCaller(req) {
+    const openid = String((req && req.openid) || '');
+    if (!openid) return false;
+    const list = String(process.env.OSURVEY_ADMIN_OPENID || DEFAULT_ADMIN_OPENID)
+      .split(',').map((s) => s.trim()).filter(Boolean);
+    return list.includes(openid);
+  }
+
+  async function myWebAccount(params, req) {
+    const openid = String((req && req.openid) || '');
+    const user = openid ? await db.getWebUserByBoundOpenId(openid) : null;
+    if (!user) return ok({ bound: false, isAdmin: isAdminCaller(req) });
+    return ok({
+      bound: true,
+      isAdmin: isAdminCaller(req),
+      username: user.Username,
+      displayName: user.DisplayName,
+    });
+  }
+
+  async function selfResetPassword(params, req) {
+    const openid = String((req && req.openid) || '');
+    const password = assertPassword((req.data || {}).password);
+    const user = openid ? await db.getWebUserByBoundOpenId(openid) : null;
+    if (!user) throw httpError(404, '這個微信還沒綁定網頁帳號，請先用用戶名和密碼綁定');
+    await db.setWebUserPassword(user.UserId, hashPassword(password));
+    return ok({ ok: true, username: user.Username });
+  }
+
+  // 反向綁定：在小程序輸入網頁帳密，把這個 openid 綁到該網頁帳號。
+  async function bindWebByPassword(params, req) {
+    const openid = String((req && req.openid) || '');
+    if (!openid) throw httpError(401, '無法取得微信用戶身份');
+    const body = req.data || {};
+    const username = String(body.username || '').trim().toLowerCase();
+    const password = String(body.password || '');
+    const user = await db.getWebUserByUsername(username);
+    if (!user || !verifyPassword(password, user.PasswordHash)) throw httpError(401, '用戶名或密碼不正確');
+    if (user.BoundOpenId && user.BoundOpenId !== openid) throw httpError(409, '這個網頁帳號已綁定其他微信');
+    const already = await db.getWebUserByBoundOpenId(openid);
+    if (already && already.UserId !== user.UserId) throw httpError(409, '這個微信已經綁定其他網頁帳號');
+    if (user.BoundOpenId === openid) {
+      return ok({ ok: true, username: user.Username, displayName: user.DisplayName, already: true });
+    }
+    const oldIdentity = user.Identity || ('web:' + user.UserId);
+    await db.setWebUserBoundOpenId(user.UserId, openid);
+    const merged = await db.migrateWebIdentity({ webIds: [oldIdentity], openid });
+    return ok({ ok: true, username: user.Username, displayName: user.DisplayName, merged });
+  }
+
+  function assertAdmin(req) {
+    if (isAdminCaller(req)) return;
+    log('[osurvey] 拒絕管理員操作 caller=' + String((req && req.openid) || '').slice(0, 8) + '…');
+    throw httpError(403, '只有管理員可以執行這個操作');
+  }
+
+  async function listWebUsers(params, req) {
+    assertAdmin(req);
+    const list = await db.listWebUsers();
+    return ok({
+      list: list.map((u) => ({
+        username: u.Username,
+        displayName: u.DisplayName,
+        bound: !!u.BoundOpenId,
+        createdAt: u.CreatedAt || null,
+      })),
+    });
+  }
+
+  async function adminResetPassword(params, req) {
+    assertAdmin(req);
+    const body = req.data || {};
+    const username = String(body.username || '').trim().toLowerCase();
+    const password = assertPassword(body.password);
+    const user = await db.getWebUserByUsername(username);
+    if (!user) throw httpError(404, '找不到這個用戶');
+    await db.setWebUserPassword(user.UserId, hashPassword(password));
+    return ok({ ok: true, username: user.Username });
+  }
+
   async function listSurveys(params, req) {
     return ok({ list: await db.listSurveys(req.openid) });
   }
@@ -578,6 +667,11 @@ function createRouter({ db, resolveOpenData, allowDevGid = false, genWxacode = n
     ['POST', /^\/webauth\/login$/, loginWebUser],
     ['POST', /^\/webaccount\/bind\/create$/, createWebBind],
     ['GET', /^\/webaccount\/bind\/status$/, webBindStatus],
+    ['GET', /^\/webaccount\/me$/, myWebAccount],
+    ['POST', /^\/webaccount\/self-reset$/, selfResetPassword],
+    ['POST', /^\/webaccount\/bind-by-password$/, bindWebByPassword],
+    ['GET', /^\/webaccount\/users$/, listWebUsers],
+    ['POST', /^\/webaccount\/reset$/, adminResetPassword],
     ['POST', /^\/surveys$/, createSurvey],
     ['GET', /^\/surveys$/, listSurveys],
     ['GET', /^\/groupnames$/, listGroupNames],

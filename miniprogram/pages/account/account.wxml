@@ -1,0 +1,72 @@
+<view class="head">
+  <view class="head-inner">
+    <view class="head-eyebrow">網頁版帳號</view>
+    <view class="head-title">微信與網頁身份</view>
+    <view class="head-sub">綁定後兩邊共用同一份問卷與答卷；忘記網頁密碼也能在這裡重設</view>
+  </view>
+</view>
+
+<view class="wrap">
+  <view class="card card--overlap" wx:if="{{loading}}">
+    <view class="muted">載入中…</view>
+  </view>
+
+  <view class="card card--overlap" wx:elif="{{err}}">
+    <view class="sec-title">載入失敗</view>
+    <view class="muted">{{err}}</view>
+    <view class="btn-group">
+      <button class="btn btn-ghost btn-sm" hover-class="btn-hover" bindtap="reload">重試</button>
+    </view>
+  </view>
+
+  <block wx:else>
+    <view class="card card--overlap">
+      <view class="row">
+        <view class="sec-title" style="margin-bottom:0">{{bound ? '已綁定網頁帳號' : '尚未綁定網頁帳號'}}</view>
+        <view class="tag {{bound ? 'tag-live' : 'tag-warn'}}">
+          <text class="dot {{bound ? 'dot-live' : ''}}"></text>{{bound ? '已綁定' : '未綁定'}}
+        </view>
+      </view>
+      <block wx:if="{{bound}}">
+        <view class="acc-box">
+          <view class="acc-name">{{displayName}}</view>
+          <view class="faint">@{{username}}</view>
+        </view>
+        <view class="hint">這個微信和網頁帳號是同一個身份；同一份問卷只算一份答卷。</view>
+      </block>
+      <block wx:else>
+        <view class="muted" style="margin-top:16rpx">輸入一次網頁版的用戶名和密碼，就能把這個微信綁到該帳號。</view>
+        <view class="hint">綁定後，兩邊建過的問卷和答卷會合併；之後忘記密碼也可以在這一頁重設。</view>
+      </block>
+    </view>
+
+    <view class="card">
+      <view class="sec-title">{{bound ? '重設網頁密碼' : '綁定網頁帳號'}}</view>
+
+      <block wx:if="{{!bound}}">
+        <view class="label">網頁用戶名</view>
+        <input class="input" value="{{usernameInput}}" bindinput="onUsername" placeholder="例：cypilu" maxlength="32" />
+      </block>
+
+      <view class="label">{{bound ? '新密碼' : '網頁密碼'}}</view>
+      <input class="input" password value="{{password}}" bindinput="onPassword" placeholder="6~72 位" maxlength="72" />
+
+      <block wx:if="{{bound}}">
+        <view class="label">再輸入一次新密碼</view>
+        <input class="input" password value="{{password2}}" bindinput="onPassword2" placeholder="再輸入一次" maxlength="72" />
+      </block>
+
+      <button
+        class="btn btn-primary"
+        hover-class="btn-hover"
+        style="margin-top:36rpx"
+        loading="{{saving}}"
+        disabled="{{saving}}"
+        bindtap="submit"
+      >{{bound ? '重設密碼' : '綁定'}}</button>
+
+      <view class="hint" wx:if="{{bound}}">重設後請用新密碼在網頁登入；已提交的答卷不受影響。</view>
+      <view class="hint" wx:if="{{!bound}}">忘記網頁密碼的話，請先請管理員在網頁端重設，再回來綁定。</view>
+    </view>
+  </block>
+</view>

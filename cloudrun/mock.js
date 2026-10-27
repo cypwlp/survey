@@ -81,6 +81,13 @@ function admin(path, method) {
   }
   if (method === 'POST' && path === '/surveys') return { data: { surveyId: 12 } };
   if (method === 'POST' && /^\/surveys\/8\/(close|bindmode|deadline|delete)$/.test(path)) return { data: { ok: true } };
+  if (method === 'GET' && path === '/webaccount/users') {
+    return { data: { list: [
+      { username: 'cypilu', displayName: '小威', bound: true, createdAt: now },
+      { username: 'xiaoming', displayName: '小明', bound: false, createdAt: now },
+    ] } };
+  }
+  if (method === 'POST' && path === '/webaccount/reset') return { data: { ok: true, username: 'cypilu' } };
   return { status: 404, data: { error: 'mock：找不到 ' + method + ' ' + path } };
 }
 

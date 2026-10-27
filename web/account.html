@@ -63,6 +63,25 @@
           <div class="btn-row" style="justify-content:center"><button id="refreshBind" class="btn btn-quiet btn-sm" type="button">重新產生</button></div>
         </div>
       </section>
+
+      <section class="card hidden" id="adminCard">
+        <h2 class="sec-title">用戶管理</h2>
+        <div class="muted">重設其他用戶的網頁密碼。對方不需要舊密碼，直接用新密碼登入即可。</div>
+        <label class="label" for="resetUser">選擇用戶</label>
+        <select id="resetUser" class="select"></select>
+        <div class="form-grid">
+          <div>
+            <label class="label" for="resetPwd">新密碼</label>
+            <input id="resetPwd" class="input" type="password" placeholder="6~72 位" autocomplete="new-password">
+          </div>
+          <div>
+            <label class="label" for="resetPwd2">再輸入一次</label>
+            <input id="resetPwd2" class="input" type="password" autocomplete="new-password">
+          </div>
+        </div>
+        <div class="btn-row"><button id="resetBtn" class="btn btn-primary btn-sm" type="button">重設密碼</button></div>
+        <div class="hint">只影響網頁登入；已提交的答卷與微信綁定都不受影響。</div>
+      </section>
     </div>
   </main>
 
@@ -91,10 +110,29 @@
         return s.slice(0, 4) + '****' + s.slice(-4);
       }
 
+      async function loadAdminUsers() {
+        const sel = $('#resetUser');
+        sel.innerHTML = '<option value="">載入中…</option>';
+        try {
+          const res = await Survey.apiAdmin('/webaccount/users');
+          const list = (res && res.list) || [];
+          sel.innerHTML = list.length
+            ? list.map((u) => `<option value="${Survey.esc(u.username)}">${Survey.esc(u.displayName)} (@${Survey.esc(u.username)})${u.bound ? ' · 已綁定' : ''}</option>`).join('')
+            : '<option value="">目前沒有其他用戶</option>';
+        } catch (e) {
+          sel.innerHTML = '<option value="">載入用戶失敗</option>';
+          Survey.toast(e.message || '載入用戶失敗', true);
+        }
+      }
+
       function render(user) {
         loading.classList.add('hidden');
         errorBox.classList.add('hidden');
         content.classList.remove('hidden');
+        if (user.isLegacyAdmin) {
+          $('#adminCard').classList.remove('hidden');
+          loadAdminUsers();
+        }
         $('#displayName').textContent = user.displayName || user.username;
         $('#username').textContent = user.username;
         $('#identity').textContent = maskOpenId(user.identity || '');
@@ -143,6 +181,26 @@
 
       $('#bindBtn').addEventListener('click', startBind);
       $('#refreshBind').addEventListener('click', startBind);
+      $('#resetBtn').addEventListener('click', async () => {
+        const username = $('#resetUser').value;
+        const pwd = $('#resetPwd').value;
+        const pwd2 = $('#resetPwd2').value;
+        if (!username) return Survey.toast('請選擇用戶', true);
+        if (pwd.length < 6 || pwd.length > 72) return Survey.toast('密碼需 6~72 位', true);
+        if (pwd !== pwd2) return Survey.toast('兩次輸入不一致', true);
+        const btn = $('#resetBtn');
+        btn.disabled = true;
+        try {
+          const res = await Survey.apiAdmin('/webaccount/reset', 'POST', { username, password: pwd });
+          Survey.toast('已重設 ' + (res.username || username) + ' 的密碼');
+          $('#resetPwd').value = '';
+          $('#resetPwd2').value = '';
+        } catch (e) {
+          Survey.toast(e.message || '重設失敗', true);
+        } finally {
+          btn.disabled = false;
+        }
+      });
       $('#logoutBtn').addEventListener('click', async () => {
         try { await Survey.logout(); } catch (e) { /* ignore */ }
         location.href = 'index.html';

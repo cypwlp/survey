@@ -69,6 +69,7 @@ Page({
 
   goCreate() { wx.navigateTo({ url: '/pages/admin/create/create' }); },
   goList() { wx.navigateTo({ url: '/pages/admin/list/list' }); },
+  goAccount() { wx.navigateTo({ url: '/pages/account/account' }); },
   goRecent() {
     if (this.data.recent) wx.navigateTo({ url: `/pages/admin/survey/survey?id=${this.data.recent.id}` });
   },

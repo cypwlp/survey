@@ -300,10 +300,21 @@ function cloudDriver(cloud, { log = () => {} } = {}) {
       return findOne('web_user', { BoundOpenId: openid });
     },
 
+    async listWebUsers({ limit = 500 } = {}) {
+      return findAll('web_user', {}, { order: ['CreatedAt', 'asc'], limit });
+    },
+
     async setWebUserBoundOpenId(userId, openid) {
       return patch('web_user', { UserId: userId }, {
         BoundOpenId: openid,
         Identity: openid,
+        UpdatedAt: nowIso(),
+      });
+    },
+
+    async setWebUserPassword(userId, passwordHash) {
+      return patch('web_user', { UserId: userId }, {
+        PasswordHash: passwordHash,
         UpdatedAt: nowIso(),
       });
     },

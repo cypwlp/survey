@@ -26,6 +26,15 @@
       </view>
       <view class="act-arrow">›</view>
     </view>
+    <view class="divider"></view>
+    <view class="act" hover-class="act-hover" bindtap="goAccount">
+      <view class="act-ico act-ico--c">微</view>
+      <view class="act-body">
+        <view class="act-title">網頁版帳號</view>
+        <view class="muted">綁定微信、重設網頁密碼</view>
+      </view>
+      <view class="act-arrow">›</view>
+    </view>
   </view>
 
   <view class="card" wx:if="{{openid && overview.total}}">

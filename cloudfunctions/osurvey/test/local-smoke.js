@@ -337,6 +337,51 @@ async function main() {
   r = await call('oMini', 'GET', `/surveys/${webSurveyId}/stats`, {});
   check('綁定後統計可讀且只算一份', r.statusCode === 200 && r.data.answerCount === 1, r.data);
 
+  console.log('\n[16] 重設密碼與反向綁定');
+  const ADMIN_OPENID = 'oDdte3WoBj2ZZiEdvIG6hCLTIK_k';
+  r = await call('oMini', 'GET', '/webaccount/me', {});
+  check('已綁定微信查到網頁帳號', r.statusCode === 200 && r.data.bound === true && r.data.username === 'webuser', r.data);
+  r = await call('oNobody', 'GET', '/webaccount/me', {});
+  check('未綁定微信回 bound=false', r.statusCode === 200 && r.data.bound === false, r.data);
+
+  r = await call('oMini', 'POST', '/webaccount/self-reset', { password: 'selfpass1' });
+  check('微信自助重設密碼', r.statusCode === 200 && r.data.username === 'webuser', r.data);
+  r = await call('', 'POST', '/webauth/login', { username: 'webuser', password: 'secret1' });
+  check('舊密碼已失效 → 401', r.statusCode === 401, r.data);
+  r = await call('', 'POST', '/webauth/login', { username: 'webuser', password: 'selfpass1' });
+  check('新密碼可登入', r.statusCode === 200, r.data);
+
+  r = await call('oNobody', 'POST', '/webaccount/self-reset', { password: 'whatever1' });
+  check('未綁定微信不能重設 → 404', r.statusCode === 404, r.data);
+  r = await call('oMini', 'POST', '/webaccount/self-reset', { password: '123' });
+  check('自助重設短密碼 → 400', r.statusCode === 400, r.data);
+
+  r = await call('oMini', 'POST', '/webaccount/reset', { username: 'webuser', password: 'hacked1' });
+  check('非管理員被擋 → 403', r.statusCode === 403, r.data);
+  r = await call('oMini', 'GET', '/webaccount/users', {});
+  check('非管理員看不到用戶清單 → 403', r.statusCode === 403, r.data);
+  r = await call(ADMIN_OPENID, 'GET', '/webaccount/users', {});
+  check('管理員看到用戶清單', r.statusCode === 200 && r.data.list.some((u) => u.username === 'webuser'), r.data);
+  r = await call(ADMIN_OPENID, 'POST', '/webaccount/reset', { username: 'webuser', password: 'adminpass1' });
+  check('管理員重設密碼', r.statusCode === 200, r.data);
+  r = await call('', 'POST', '/webauth/login', { username: 'webuser', password: 'adminpass1' });
+  check('管理員重設後可登入', r.statusCode === 200, r.data);
+  r = await call(ADMIN_OPENID, 'POST', '/webaccount/reset', { username: 'nobody', password: 'adminpass1' });
+  check('重設不存在的用戶 → 404', r.statusCode === 404, r.data);
+
+  r = await call('', 'POST', '/webauth/register', { username: 'webuser2', password: 'secret2', displayName: '第二個' });
+  check('註冊第二個網頁帳號', r.statusCode === 200, r.data);
+  r = await call('oMini2', 'POST', '/webaccount/bind-by-password', { username: 'webuser2', password: 'bad' });
+  check('反向綁定錯密碼 → 401', r.statusCode === 401, r.data);
+  r = await call('oMini2', 'POST', '/webaccount/bind-by-password', { username: 'webuser2', password: 'secret2' });
+  check('小程序用帳密反向綁定', r.statusCode === 200 && r.data.username === 'webuser2', r.data);
+  r = await call('oMini2', 'GET', '/webaccount/me', {});
+  check('反向綁定後 me 回已綁定', r.statusCode === 200 && r.data.bound === true && r.data.username === 'webuser2', r.data);
+  r = await call('oMini3', 'POST', '/webaccount/bind-by-password', { username: 'webuser2', password: 'secret2' });
+  check('已綁定的帳號不能再綁別的微信 → 409', r.statusCode === 409, r.data);
+  r = await call('oMini2', 'POST', '/webaccount/bind-by-password', { username: 'webuser', password: 'adminpass1' });
+  check('已綁定的微信不能再綁別的帳號 → 409', r.statusCode === 409, r.data);
+
   console.log(`\n${fail ? '✗ 失敗 ' + fail + ' 項 / ' : ''}通過 ${pass} 項`);
   if (fail) process.exit(1);
 }

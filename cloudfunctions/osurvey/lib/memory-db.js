@@ -228,11 +228,21 @@ function memoryDriver() {
       const u = webUsers.find((x) => x.BoundOpenId === openid);
       return u ? { ...u } : null;
     },
+    async listWebUsers() {
+      return webUsers.map((u) => ({ ...u }));
+    },
     async setWebUserBoundOpenId(userId, openid) {
       const u = webUsers.find((x) => x.UserId === userId);
       if (!u) return false;
       u.BoundOpenId = openid;
       u.Identity = openid;
+      u.UpdatedAt = now();
+      return true;
+    },
+    async setWebUserPassword(userId, passwordHash) {
+      const u = webUsers.find((x) => x.UserId === userId);
+      if (!u) return false;
+      u.PasswordHash = passwordHash;
       u.UpdatedAt = now();
       return true;
     },

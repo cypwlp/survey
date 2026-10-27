@@ -71,6 +71,7 @@
 
 .act-ico--a { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
 .act-ico--b { background: linear-gradient(135deg, #0ea5e9, #6366f1); }
+.act-ico--c { background: linear-gradient(135deg, #10b981, #0ea5a4); font-size: 28rpx; font-weight: 700; }
 
 .act-body { flex: 1; }
 
